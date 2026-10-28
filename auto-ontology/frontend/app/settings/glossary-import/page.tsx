@@ -15,15 +15,11 @@ import type {
 	GlossaryImport,
 	GlossaryImportDetail,
 } from '@/types/glossaryImport';
+import { CARD_COMPACT, INPUT_DENSE, PAGE_MAIN } from '@/components/settings/pageStyles';
 
 const ACCEPT = '.pdf,.docx,.xlsx,.xlsm,.csv,.txt,.md';
 const SUFFIXES = ACCEPT.split(',');
 const POLL_MS = 2000;
-
-const INPUT =
-	'w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-body outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200';
-const CARD =
-	'rounded-lg border border-zinc-200/90 bg-white/90 p-4 shadow-sm ring-1 ring-zinc-950/[0.04] dark:border-zinc-700/90 dark:bg-zinc-950/50 dark:ring-white/[0.06]';
 
 const StatusBadge = ({ batch }: { batch: GlossaryImport | GlossaryImportDetail }) => {
 	if (batch.status === 'processing') {
@@ -85,7 +81,7 @@ const CandidateRow = ({
 				<div className="flex flex-wrap items-center gap-2">
 					<input
 						aria-label="术语"
-						className={`${INPUT} max-w-60 font-medium`}
+						className={`${INPUT_DENSE} max-w-60 font-medium`}
 						value={term}
 						disabled={!editable}
 						onChange={(e) => setTerm(e.target.value)}
@@ -123,7 +119,7 @@ const CandidateRow = ({
 				</div>
 				<textarea
 					aria-label="定义"
-					className={INPUT}
+					className={INPUT_DENSE}
 					rows={2}
 					value={definition}
 					disabled={!editable}
@@ -137,7 +133,7 @@ const CandidateRow = ({
 					<span className="shrink-0">别名</span>
 					<input
 						aria-label="同义词"
-						className={`${INPUT} text-xs`}
+						className={`${INPUT_DENSE} text-xs`}
 						placeholder="同义词 / 别名，用顿号或逗号分隔"
 						value={synonyms}
 						disabled={!editable}
@@ -287,7 +283,7 @@ export default function GlossaryImportPage() {
 	};
 
 	return (
-		<main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,255,1)_0%,rgba(250,250,250,0.6)_100%)] px-7 py-6 sm:px-10 sm:py-7 dark:bg-[linear-gradient(180deg,rgba(9,9,11,1)_0%,rgba(24,24,27,0.5)_100%)]">
+		<main className={PAGE_MAIN}>
 			<div className="w-full space-y-5">
 				<div>
 					<h1 className="text-base font-semibold text-heading dark:text-zinc-100">
@@ -300,7 +296,7 @@ export default function GlossaryImportPage() {
 					</p>
 				</div>
 
-				<section className={CARD}>
+				<section className={CARD_COMPACT}>
 					<FileUpload
 						value={file}
 						onChange={(f) => {
@@ -343,7 +339,7 @@ export default function GlossaryImportPage() {
 					</p>
 				)}
 
-				<section className={CARD}>
+				<section className={CARD_COMPACT}>
 					<h2 className="mb-2 text-sm font-semibold text-heading dark:text-zinc-100">
 						导入记录
 					</h2>
@@ -393,7 +389,7 @@ export default function GlossaryImportPage() {
 				</section>
 
 				{detail && (
-					<section className={CARD}>
+					<section className={CARD_COMPACT}>
 						<div className="flex flex-wrap items-center justify-between gap-2">
 							<h2 className="text-sm font-semibold text-heading dark:text-zinc-100">
 								{detail.file_name} 的候选术语

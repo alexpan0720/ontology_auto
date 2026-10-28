@@ -22,8 +22,9 @@ from auto_ontology.retrieval.data_access.graph_schemas import (
 _DEFAULT_DIALECTS = ["", "postgres"]
 
 
-class SqlParseError(Exception):
-    """SQL could not be parsed or resolved against the catalog."""
+# Defined with the catalog so the DAL can raise and catch it without importing
+# the server layer; re-exported here for existing callers.
+from auto_ontology.catalog.sql_errors import SqlParseError  # noqa: E402,F401
 
 
 def get_dialects(database_name: str | None = None) -> list[str]:

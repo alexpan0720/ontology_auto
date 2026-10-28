@@ -28,7 +28,7 @@ from sqlalchemy import distinct, func, or_, select
 
 from auto_ontology.dal import schema as s
 from auto_ontology.dal.session import store, write_transaction
-from auto_ontology.server.zones.utils import format_zone
+from auto_ontology.dal.zone_labels import format_zone
 
 logger = logging.getLogger(__name__)
 

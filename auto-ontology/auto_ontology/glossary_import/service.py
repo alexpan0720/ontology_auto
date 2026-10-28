@@ -85,3 +85,31 @@ def start_import(
     else:
         run_batch(batch_id, chunks, llm)
     return batch_id
+
+
+def apply_import(
+    batch_id: str,
+    candidate_ids: list[str],
+    *,
+    overwrite_existing: bool,
+    update_terms: bool,
+    modified_by: str | None,
+) -> dict[str, int]:
+    """Apply the chosen candidates, then refresh the embeddings of updated terms."""
+    from auto_ontology.server.terms import service as term_service
+
+    result = dal.apply_candidates(
+        batch_id,
+        candidate_ids,
+        overwrite_existing=overwrite_existing,
+        update_terms=update_terms,
+        modified_by=modified_by,
+    )
+    for term_id in result.pop("updated_term_ids"):
+        try:
+            term_service.refresh_term_embeddings(term_id, refresh_dependent_attrs=False)
+        except Exception:  # noqa: BLE001 - the description is saved regardless
+            logger.warning(
+                "Failed to refresh embeddings for term %r", term_id, exc_info=True
+            )
+    return result

@@ -99,8 +99,12 @@ services:
       auto-ontology-migrate:
         condition: service_completed_successfully
 
-  # DingTalk / Feishu bots. Idle until a platform is enabled in Settings; it
-  # then holds an outbound Stream / long connection, so no public URL is needed.
+  # Background integrations, one polling loop:
+  # - DingTalk / Feishu bots: idle until a platform is enabled in Settings; it
+  #   then holds an outbound Stream / long connection, so no public URL is needed.
+  # - Metric subscriptions: starts each due subscription (Settings → 订阅与预警)
+  #   by calling the API's run endpoint. Without this service nothing is pushed
+  #   on schedule; "立即推送" in the UI still works.
   bot-service:
     build:
       context: .

@@ -5,12 +5,6 @@
 import { BADGE_TONE } from '@/components/settings/pageStyles';
 import type { AccessRequestStatus } from '@/types/accessRequests';
 
-export const KIND_LABEL: Record<string, string> = {
-	column: '字段权限',
-	mask: '脱敏',
-	row: '行权限',
-};
-
 export const STATUS_BADGE: Record<
 	AccessRequestStatus,
 	{ label: string; tone: keyof typeof BADGE_TONE }

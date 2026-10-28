@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from auto_ontology.dal import glossary_import as dal
 from auto_ontology.dal import schema as s
 from auto_ontology.glossary_import.parsers import DocumentError
+from auto_ontology.glossary_import import service
 from auto_ontology.glossary_import.service import start_import
 from auto_ontology.server.identity import resolve_internal_user
 
@@ -94,7 +95,7 @@ def apply_candidates(
 ) -> dict[str, int]:
     """Write the chosen candidates to the glossary."""
     try:
-        return dal.apply_candidates(
+        return service.apply_import(
             batch_id,
             body.candidate_ids,
             overwrite_existing=body.overwrite_existing,

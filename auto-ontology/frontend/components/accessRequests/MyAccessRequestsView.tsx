@@ -10,7 +10,8 @@ import { accessRequestsApi } from '@/api/accessRequests';
 import { Button } from '@/common/Button';
 import { formatDate } from '@/common/date';
 import { Modal } from '@/common/modal';
-import { KIND_LABEL, STATUS_BADGE } from '@/components/accessRequests/labels';
+import { STATUS_BADGE } from '@/components/accessRequests/labels';
+import { KIND_LABEL } from '@/components/governance/policyLabels';
 import {
 	BADGE,
 	BADGE_TONE,

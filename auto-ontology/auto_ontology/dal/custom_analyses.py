@@ -24,7 +24,7 @@ from auto_ontology.dal import schema as s
 from auto_ontology.dal.session import store, write_transaction
 from auto_ontology.dal.sql_fragments import column_description_expr, name_contains
 from auto_ontology.dal.users import resolve_accessible_catalog_ids
-from auto_ontology.server.sql_utils import SqlParseError
+from auto_ontology.catalog.sql_errors import SqlParseError
 
 if TYPE_CHECKING:
     from auto_ontology.utils.embedding import EmbedParams

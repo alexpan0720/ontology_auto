@@ -102,7 +102,7 @@
     "fetch_term_exploration_details": "(term_id: 'str', zone_ids: 'list[str] | None' = None, *, skip: 'int' = 0, limit: 'int | None' = None) -> 'dict[str, Any]'"
   },
   "glossary_import": {
-    "apply_candidates": "(batch_id: 'str', candidate_ids: 'list[str]', *, overwrite_existing: 'bool', update_terms: 'bool', modified_by: 'str | None') -> 'dict[str, int]'",
+    "apply_candidates": "(batch_id: 'str', candidate_ids: 'list[str]', *, overwrite_existing: 'bool', update_terms: 'bool', modified_by: 'str | None') -> 'dict[str, Any]'",
     "create_batch": "(*, file_name: 'str', chunks_total: 'int', truncated: 'bool', created_by: 'str | None') -> 'str'",
     "delete_batch": "(batch_id: 'str') -> 'bool'",
     "fail_batch": "(batch_id: 'str', error: 'str') -> 'None'",
@@ -121,6 +121,8 @@
     "delete_policy": "(policy_id: 'str') -> 'bool'",
     "delete_verified": "(query_id: 'str') -> 'bool'",
     "find_similar_verified": "(question: 'str', database_name: 'str | None' = None, *, limit: 'int' = 3, min_score: 'float' = 0.6) -> 'list[dict[str, Any]]'",
+    "group_names": "() -> 'dict[str, str]'",
+    "is_admin_user": "(user_id: 'str', groups: 'list[dict[str, Any]]') -> 'bool'",
     "is_key_column": "(name: 'str') -> 'bool'",
     "list_audit": "(*, user_id: 'str | None' = None, decision: 'str | None' = None, search: 'str | None' = None, skip: 'int' = 0, limit: 'int' = 50) -> 'dict[str, Any]'",
     "list_policies": "() -> 'list[dict[str, Any]]'",
@@ -129,11 +131,13 @@
     "resolve_access": "(user_id: 'str | None') -> 'AccessContext'",
     "restrict_pii_columns": "(created_by: 'str | None' = None) -> 'tuple[int, int]'",
     "update_policy": "(policy_id: 'str', changes: 'dict[str, Any]') -> 'bool'",
-    "update_verified": "(query_id: 'str', changes: 'dict[str, Any]', reviewer: 'str | None') -> 'bool'"
+    "update_verified": "(query_id: 'str', changes: 'dict[str, Any]', reviewer: 'str | None') -> 'bool'",
+    "user_groups": "(user_id: 'str') -> 'list[dict[str, Any]]'"
   },
   "groups": {
     "GroupNameTaken": "class(ValueError)",
     "UnknownGroupMembers": "class(ValueError)",
+    "accounts_by_id": "(user_ids: 'list[str]') -> 'dict[str, dict[str, Any]]'",
     "create_group": "(*, name: 'str', description: 'str | None', color: 'str', role: 'str', user_ids: 'list[str]') -> 'dict[str, Any]'",
     "delete_group": "(group_id: 'str') -> 'bool'",
     "get_account": "(user_id: 'str') -> 'dict[str, Any] | None'",
@@ -330,8 +334,12 @@
   },
   "users": {
     "get_accessible_catalog_ids_for_zones": "(zone_ids: 'list[str]') -> 'dict[str, set[str]]'",
+    "get_user_role": "(user_id: 'str') -> 'str | None'",
     "resolve_accessible_catalog_ids": "(zone_ids: 'list[str] | None', data_ids_by_zone: 'dict[str, set[str]] | None' = None) -> 'dict[str, set[str]] | None'",
     "resolve_table_filter": "(zone_ids: 'list[str] | None', column_ref: 'Any', *, data_ids_by_zone: 'dict[str, set[str]] | None' = None) -> 'Any'"
+  },
+  "zone_labels": {
+    "format_zone": "(row: 'dict', *, items: 'list[dict] | list[str] | None' = None, enabled: 'bool | None' = None) -> 'dict'"
   },
   "zones": {
     "create_zone": "(*, name: 'str', description: 'str | None', color: 'str', item_ids: 'list[str]') -> 'dict[str, Any]'",

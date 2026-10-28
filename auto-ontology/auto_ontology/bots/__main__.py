@@ -112,7 +112,9 @@ def main() -> None:
     )
     supervisor = Supervisor()
     scheduler = Scheduler(BACKEND_URL)
-    logger.info("Bot service started; checking settings every %ss", int(POLL_S))
+    logger.info(
+        "Bot and subscription service started; checking every %ss", int(POLL_S)
+    )
     try:
         while True:
             try:

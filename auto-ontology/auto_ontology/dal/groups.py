@@ -67,7 +67,8 @@ def _name_taken(name: str, *, exclude_id: str | None = None) -> bool:
     return bool(store().query_read(statement))
 
 
-def _accounts_by_id(user_ids: list[str]) -> dict[str, dict[str, Any]]:
+def accounts_by_id(user_ids: list[str]) -> dict[str, dict[str, Any]]:
+    """Accounts (``id``, ``name``, ``email``, ``role``) by id; unknown ids are absent."""
     if not user_ids:
         return {}
     rows = store().query_read(
@@ -78,7 +79,7 @@ def _accounts_by_id(user_ids: list[str]) -> dict[str, dict[str, Any]]:
 
 
 def _missing_user_ids(user_ids: list[str]) -> list[str]:
-    found = _accounts_by_id(user_ids)
+    found = accounts_by_id(user_ids)
     return [user_id for user_id in user_ids if user_id not in found]
 
 
@@ -104,7 +105,7 @@ def _attach_users(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
             s.user_group__member.c.user_id,
         ).where(s.user_group__member.c.group_id.in_(group_ids))
     )
-    accounts = _accounts_by_id(list({row["user_id"] for row in member_rows}))
+    accounts = accounts_by_id(list({row["user_id"] for row in member_rows}))
     members: dict[str, list[str]] = {}
     for row in member_rows:
         members.setdefault(row["group_id"], []).append(row["user_id"])

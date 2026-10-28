@@ -12,6 +12,7 @@ import { Modal } from '@/common/modal';
 import { SqlBlock } from '@/common/SqlBlock';
 import { ButtonTheme, Size } from '@/enums/button';
 import type { VerifiedQuery, VerifiedStatus } from '@/types/governance';
+import { INPUT, PAGE_MAIN } from '@/components/settings/pageStyles';
 
 const TABS: { key: VerifiedStatus | ''; label: string }[] = [
 	{ key: 'pending', label: '待审核' },
@@ -31,9 +32,6 @@ const STATUS_CLASS: Record<VerifiedStatus, string> = {
 	certified: 'bg-[#2563eb]/10 text-[#1e40af] dark:bg-[#2563eb]/15 dark:text-[#60a5fa]',
 	rejected: 'bg-zinc-100 text-secondary dark:bg-zinc-800 dark:text-zinc-400',
 };
-
-const INPUT =
-	'w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-body outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200';
 
 type Draft = {
 	id?: string;
@@ -114,7 +112,7 @@ export default function VerifiedQueriesPage() {
 	};
 
 	return (
-		<main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,255,1)_0%,rgba(250,250,250,0.6)_100%)] px-7 py-6 sm:px-10 sm:py-7 dark:bg-[linear-gradient(180deg,rgba(9,9,11,1)_0%,rgba(24,24,27,0.5)_100%)]">
+		<main className={PAGE_MAIN}>
 			<div className="w-full space-y-4">
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div>

@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 type NavItem = { label: string; href: string };
+type NavGroup = { title: string; items: NavItem[] };
 
 const CONNECTIONS_NAV_ITEM: NavItem = { label: '数据连接', href: '/settings/connections' };
 const ZONES_NAV_ITEM: NavItem = { label: '数据域', href: '/settings/zones' };
@@ -79,42 +80,76 @@ export type SettingsNavProps = {
 export const SettingsNav = ({ connectionsEnvManaged }: SettingsNavProps) => {
 	const pathname = usePathname();
 
-	const items: NavItem[] = [];
-	if (!connectionsEnvManaged) items.push(CONNECTIONS_NAV_ITEM);
-	items.push(
-		ZONES_NAV_ITEM,
-		TAGS_NAV_ITEM,
-		RULES_NAV_ITEM,
-		PII_SETTINGS_NAV_ITEM,
-		SEMANTIC_INPUT_NAV_ITEM,
-		GLOSSARY_IMPORT_NAV_ITEM,
-		USERS_NAV_ITEM,
-		ACCESS_CONTROL_NAV_ITEM,
-		ACCESS_REQUESTS_NAV_ITEM,
-		ACCESS_AUDIT_NAV_ITEM,
-		VERIFIED_QUERIES_NAV_ITEM,
-		INSIGHTS_NAV_ITEM,
-		SSO_NAV_ITEM,
-		SEMANTIC_COMPILATION_NAV_ITEM,
-		AGENT_SETTINGS_NAV_ITEM,
-		BOTS_NAV_ITEM,
-		SUBSCRIPTIONS_NAV_ITEM,
-		IMPORT_EXPORT_NAV_ITEM,
-	);
+	// Grouped by what the admin is doing, so the long list scans by section.
+	const groups: NavGroup[] = [
+		{
+			title: '数据',
+			items: [
+				...(connectionsEnvManaged ? [] : [CONNECTIONS_NAV_ITEM]),
+				ZONES_NAV_ITEM,
+				TAGS_NAV_ITEM,
+				RULES_NAV_ITEM,
+			],
+		},
+		{
+			title: '语义',
+			items: [
+				SEMANTIC_INPUT_NAV_ITEM,
+				GLOSSARY_IMPORT_NAV_ITEM,
+				SEMANTIC_COMPILATION_NAV_ITEM,
+			],
+		},
+		{
+			title: '权限与治理',
+			items: [
+				USERS_NAV_ITEM,
+				SSO_NAV_ITEM,
+				PII_SETTINGS_NAV_ITEM,
+				ACCESS_CONTROL_NAV_ITEM,
+				ACCESS_REQUESTS_NAV_ITEM,
+				ACCESS_AUDIT_NAV_ITEM,
+			],
+		},
+		{
+			title: '智能问数',
+			items: [VERIFIED_QUERIES_NAV_ITEM, INSIGHTS_NAV_ITEM, AGENT_SETTINGS_NAV_ITEM],
+		},
+		{
+			title: '集成',
+			items: [BOTS_NAV_ITEM, SUBSCRIPTIONS_NAV_ITEM, IMPORT_EXPORT_NAV_ITEM],
+		},
+	];
 
 	return (
 		<nav
-			className="flex min-h-0 flex-1 flex-col gap-y-1 overflow-y-auto px-3 py-2 sm:px-4"
+			className="flex min-h-0 flex-1 flex-col gap-y-4 overflow-y-auto px-3 py-2 sm:px-4"
 			aria-label="设置分类"
 		>
-			{items.map((item) => {
-				const selected = pathname === item.href || pathname.startsWith(`${item.href}/`);
-				return (
-					<Link key={item.href} href={item.href} className={rowClassName(selected)}>
-						{item.label}
-					</Link>
-				);
-			})}
+			{groups.map((group) => (
+				<div key={group.title} role="group" aria-labelledby={`settings-nav-${group.title}`}>
+					<p
+						id={`settings-nav-${group.title}`}
+						className="px-3 pb-1 text-[11px] font-medium tracking-wide text-secondary dark:text-zinc-500"
+					>
+						{group.title}
+					</p>
+					<div className="flex flex-col gap-y-1">
+						{group.items.map((item) => {
+							const selected =
+								pathname === item.href || pathname.startsWith(`${item.href}/`);
+							return (
+								<Link
+									key={item.href}
+									href={item.href}
+									className={rowClassName(selected)}
+								>
+									{item.label}
+								</Link>
+							);
+						})}
+					</div>
+				</div>
+			))}
 		</nav>
 	);
 };

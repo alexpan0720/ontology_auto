@@ -10,13 +10,9 @@ import { Button } from '@/common/Button';
 import { formatDate } from '@/common/date';
 import { ButtonTheme, Size } from '@/enums/button';
 import type { BotPlatform, BotSettings } from '@/types/bots';
+import { CARD, INPUT, PAGE_MAIN } from '@/components/settings/pageStyles';
 
 const POLL_MS = 5000;
-
-const INPUT =
-	'w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-body outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200';
-const CARD =
-	'rounded-lg border border-zinc-200/90 bg-white/90 p-5 shadow-sm ring-1 ring-zinc-950/[0.04] dark:border-zinc-700/90 dark:bg-zinc-950/50 dark:ring-white/[0.06]';
 
 type PlatformInfo = {
 	name: string;
@@ -268,7 +264,7 @@ export default function BotsPage() {
 	}, [load]);
 
 	return (
-		<main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,255,1)_0%,rgba(250,250,250,0.6)_100%)] px-7 py-6 sm:px-10 sm:py-7 dark:bg-[linear-gradient(180deg,rgba(9,9,11,1)_0%,rgba(24,24,27,0.5)_100%)]">
+		<main className={PAGE_MAIN}>
 			<div className="w-full space-y-5">
 				<div>
 					<h1 className="text-base font-semibold text-heading dark:text-zinc-100">

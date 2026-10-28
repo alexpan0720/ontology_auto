@@ -10,8 +10,20 @@ export const PAGE_MAIN =
 export const CARD =
 	'rounded-lg border border-zinc-200/90 bg-white/90 p-5 shadow-sm ring-1 ring-zinc-950/[0.04] dark:border-zinc-700/90 dark:bg-zinc-950/50 dark:ring-white/[0.06]';
 
+/** A denser card, for lists of many cards. */
+export const CARD_COMPACT =
+	'rounded-lg border border-zinc-200/90 bg-white/90 p-4 shadow-sm ring-1 ring-zinc-950/[0.04] dark:border-zinc-700/90 dark:bg-zinc-950/50 dark:ring-white/[0.06]';
+
 export const INPUT =
 	'w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-body outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 disabled:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200';
+
+/** For fields edited inline inside a list row. */
+export const INPUT_DENSE =
+	'w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-body outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200';
+
+/** A filter or search box in a toolbar, sized by its content. */
+export const INPUT_FILTER =
+	'rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-body outline-none focus:border-[#2563eb] dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200';
 
 export const LABEL = 'flex flex-col gap-1 text-xs text-secondary dark:text-zinc-400';
 

@@ -21,7 +21,8 @@ import {
 	PAGE_MAIN,
 	PAGE_TITLE,
 } from '@/components/settings/pageStyles';
-import { KIND_LABEL, STATUS_BADGE } from '@/components/accessRequests/labels';
+import { STATUS_BADGE } from '@/components/accessRequests/labels';
+import { KIND_LABEL } from '@/components/governance/policyLabels';
 import { ButtonTheme, Size } from '@/enums/button';
 import type { AccessRequest } from '@/types/accessRequests';
 import type { PolicyGroupOption } from '@/types/governance';

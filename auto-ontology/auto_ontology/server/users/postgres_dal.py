@@ -16,41 +16,14 @@ from __future__ import annotations
 
 import logging
 
-import psycopg
-from psycopg.rows import dict_row
 
 from auto_ontology.dal.schema import GroupRole
-from auto_ontology.infra.postgres import FRONTEND_SCHEMA, get_postgres_connection_string
+
+# Lives in the DAL so data-access modules need not import the server layer;
+# re-exported here for the callers (and tests) that patch it on this module.
+from auto_ontology.dal.users import get_user_role  # noqa: F401
 
 logger = logging.getLogger(__name__)
-
-
-def get_user_role(user_id: str) -> str | None:
-    """Return the Postgres ``role`` column for *user_id*.
-
-    Returns ``None`` when the user does not exist or the database is
-    unreachable — callers should treat that as "not an admin" rather than
-    raising, so a transient Postgres hiccup fails closed instead of
-    granting elevated access.
-    """
-    try:
-        with psycopg.connect(
-            get_postgres_connection_string(), connect_timeout=3
-        ) as conn:
-            with conn.cursor(row_factory=dict_row) as cur:
-                # Schema-qualified. The role's search_path is `public`, and
-                # the Better Auth account table lives in `frontend`. An
-                # unqualified `"user"` raises, this function swallows that
-                # and returns None, and every admin then fails the check.
-                cur.execute(
-                    f'SELECT role FROM {FRONTEND_SCHEMA}."user" WHERE id = %s',
-                    (user_id,),
-                )
-                row = cur.fetchone()
-                return row["role"] if row else None
-    except Exception:
-        logger.exception("Failed to fetch role for user %r from Postgres", user_id)
-        return None
 
 
 def is_admin(user_id: str) -> bool:

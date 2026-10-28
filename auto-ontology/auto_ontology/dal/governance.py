@@ -70,14 +70,15 @@ def _policy_select():
     )
 
 
-def _group_names() -> dict[str, str]:
+def group_names() -> dict[str, str]:
+    """Every group's name by id."""
     rows = store().query_read(select(s.user_group.c.id, s.user_group.c.name))
     return {row["id"]: row["name"] for row in rows}
 
 
 def list_policies() -> list[dict[str, Any]]:
     """Every policy with its table's names and its groups' names."""
-    names = _group_names()
+    names = group_names()
     rows = store().query_read(
         _policy_select().order_by(
             s.catalog_table.c.name, s.access_policy.c.kind, s.access_policy.c.created
@@ -133,7 +134,7 @@ def _column_exists(table_id: str, column_name: str) -> bool:
 
 def _check_groups(group_ids: list[str]) -> list[str]:
     group_ids = sorted({g for g in group_ids if g})
-    unknown = set(group_ids) - set(_group_names())
+    unknown = set(group_ids) - set(group_names())
     if unknown:
         raise PolicyError("包含不存在的用户组")
     return group_ids
@@ -316,7 +317,8 @@ def restrict_pii_columns(created_by: str | None = None) -> tuple[int, int]:
 # ---------------------------------------------------------------------------
 
 
-def _user_groups(user_id: str) -> list[dict[str, Any]]:
+def user_groups(user_id: str) -> list[dict[str, Any]]:
+    """The groups *user_id* belongs to, each with its ``id`` and ``role``."""
     return store().query_read(
         select(s.user_group.c.id, s.user_group.c.role)
         .select_from(
@@ -328,20 +330,25 @@ def _user_groups(user_id: str) -> list[dict[str, Any]]:
     )
 
 
+def is_admin_user(user_id: str, groups: list[dict[str, Any]]) -> bool:
+    """Whether *user_id* is an admin by account role or through a group."""
+    from auto_ontology.dal.users import get_user_role
+
+    return get_user_role(user_id) == s.GROUP_ROLE_ADMIN or any(
+        g["role"] == s.GROUP_ROLE_ADMIN for g in groups
+    )
+
+
 def resolve_access(user_id: str | None) -> AccessContext:
     """The policies that bind *user_id* for one chat question.
 
     An unknown caller (no identity forwarded) is treated as a user in no
     groups: the strictest reading, never the most permissive.
     """
-    from auto_ontology.server.users.postgres_dal import get_user_role
-
     groups: list[dict[str, Any]] = []
     if user_id:
-        groups = _user_groups(user_id)
-        if get_user_role(user_id) == s.GROUP_ROLE_ADMIN or any(
-            g["role"] == s.GROUP_ROLE_ADMIN for g in groups
-        ):
+        groups = user_groups(user_id)
+        if is_admin_user(user_id, groups):
             return AccessContext(is_admin=True)
     member_of = {g["id"] for g in groups}
 

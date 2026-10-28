@@ -30,7 +30,7 @@ from auto_ontology.dal.session import store, write_transaction
 from auto_ontology.dal.sql_fragments import column_description_expr
 from auto_ontology.dal.tags import TARGET_SQL_ATTRIBUTE, fetch_tags_map
 from auto_ontology.dal.users import resolve_accessible_catalog_ids
-from auto_ontology.server.sql_utils import SqlParseError
+from auto_ontology.catalog.sql_errors import SqlParseError
 
 logger = logging.getLogger(__name__)
 

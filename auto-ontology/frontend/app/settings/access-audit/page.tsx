@@ -10,6 +10,7 @@ import { Button } from '@/common/Button';
 import { formatDate } from '@/common/date';
 import { ButtonTheme, Size } from '@/enums/button';
 import type { AccessAuditEntry, AccessDecision } from '@/types/governance';
+import { INPUT_FILTER, PAGE_MAIN } from '@/components/settings/pageStyles';
 
 const PAGE_SIZE = 30;
 
@@ -24,9 +25,6 @@ const DECISION_CLASS: Record<AccessDecision, string> = {
 	filtered: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
 	blocked: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
 };
-
-const INPUT =
-	'rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-body outline-none focus:border-[#2563eb] dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200';
 
 const csvCell = (value: unknown): string => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
@@ -92,7 +90,7 @@ export default function AccessAuditPage() {
 	}, [load]);
 
 	return (
-		<main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,255,1)_0%,rgba(250,250,250,0.6)_100%)] px-7 py-6 sm:px-10 sm:py-7 dark:bg-[linear-gradient(180deg,rgba(9,9,11,1)_0%,rgba(24,24,27,0.5)_100%)]">
+		<main className={PAGE_MAIN}>
 			<div className="w-full space-y-4">
 				<div>
 					<h1 className="text-base font-semibold text-heading dark:text-zinc-100">
@@ -114,7 +112,7 @@ export default function AccessAuditPage() {
 				>
 					<select
 						aria-label="按结果筛选"
-						className={INPUT}
+						className={INPUT_FILTER}
 						value={decision}
 						onChange={(e) => {
 							setSkip(0);
@@ -128,7 +126,7 @@ export default function AccessAuditPage() {
 					</select>
 					<input
 						aria-label="搜索问题或 SQL"
-						className={`${INPUT} min-w-60 flex-1`}
+						className={`${INPUT_FILTER} min-w-60 flex-1`}
 						placeholder="搜索问题或 SQL…"
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}

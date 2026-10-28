@@ -282,12 +282,13 @@ def apply_candidates(
     overwrite_existing: bool,
     update_terms: bool,
     modified_by: str | None,
-) -> dict[str, int]:
+) -> dict[str, Any]:
     """Write the chosen candidates to the glossary; returns what happened.
 
     An entry already in the glossary is replaced only with *overwrite_existing*.
     With *update_terms*, a matched business term gets the definition as its
-    description — and its embeddings refreshed, since retrieval reads them.
+    description; their ids come back as ``updated_term_ids`` so the caller can
+    refresh their embeddings, which retrieval reads.
     """
     batch = get_batch(batch_id)
     if batch is None:
@@ -297,7 +298,8 @@ def apply_candidates(
         for c in batch["candidates"]
         if c["id"] in set(candidate_ids) and c["status"] != s.CANDIDATE_ACCEPTED
     ]
-    added = replaced = skipped = terms_updated = 0
+    added = replaced = skipped = 0
+    updated_term_ids: list[str] = []
     accepted: list[str] = []
     with psycopg.connect(get_postgres_connection_string(), connect_timeout=3) as conn:
         with conn.cursor() as cur:
@@ -323,7 +325,6 @@ def apply_candidates(
 
     if update_terms:
         from auto_ontology.dal import terms as terms_dal
-        from auto_ontology.server.terms import service as term_service
 
         for c in chosen:
             matched = c["matched_term"]
@@ -335,22 +336,13 @@ def apply_candidates(
                 modified_by=modified_by,
                 touch=True,
             )
-            try:
-                term_service.refresh_term_embeddings(
-                    matched["id"], refresh_dependent_attrs=False
-                )
-            except Exception:  # noqa: BLE001 - the description is saved regardless
-                logger.warning(
-                    "Failed to refresh embeddings for term %r",
-                    matched["id"],
-                    exc_info=True,
-                )
-            terms_updated += 1
+            updated_term_ids.append(matched["id"])
 
     set_status(accepted, s.CANDIDATE_ACCEPTED)
     return {
         "added": added,
         "replaced": replaced,
         "skipped": skipped,
-        "terms_updated": terms_updated,
+        "terms_updated": len(updated_term_ids),
+        "updated_term_ids": updated_term_ids,
     }

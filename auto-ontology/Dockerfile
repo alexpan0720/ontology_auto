@@ -108,6 +108,7 @@ case "$mode" in
   ingestion_service)
     exec python -m auto_ontology.ingestion_service
     ;;
+  # Bots and the metric-subscription scheduler (see auto_ontology/bots/__main__.py).
   bots)
     exec python -m auto_ontology.bots
     ;;

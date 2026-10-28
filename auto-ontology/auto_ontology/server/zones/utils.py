@@ -9,6 +9,7 @@ from __future__ import annotations
 from auto_ontology.catalog.constants import Edges, Labels
 
 from auto_ontology.server.zones.constants import LABEL_ZONE
+from auto_ontology.dal.zone_labels import format_zone  # noqa: F401 - re-export
 
 REL_CONTAINS = Edges.CONTAINS
 
@@ -31,23 +32,3 @@ def _resolve_api_name(auto_ontology_label: str) -> str:
     return _AUTO_ONTOLOGY_LABEL_TO_API_NAME.get(
         auto_ontology_label, auto_ontology_label.lower()
     )
-
-
-def format_zone(
-    row: dict,
-    *,
-    items: list[dict] | list[str] | None = None,
-    enabled: bool | None = None,
-) -> dict:
-    """Shape a zone row for API responses."""
-    result = {
-        "id": row["id"],
-        "name": row["name"],
-        "description": row.get("description"),
-        "color": row.get("color"),
-        "label": LABEL_ZONE,
-        "enabled": enabled if enabled is not None else row.get("enabled", True),
-    }
-    if items is not None:
-        result["items"] = items
-    return result

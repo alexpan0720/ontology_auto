@@ -44,14 +44,6 @@ def _effect(policy: dict[str, Any]) -> str:
     return f"看不到满足「{policy['predicate']}」的行"
 
 
-def _is_admin(user_id: str, member_of: list[dict[str, Any]]) -> bool:
-    from auto_ontology.server.users.postgres_dal import get_user_role
-
-    return get_user_role(user_id) == s.GROUP_ROLE_ADMIN or any(
-        g["role"] == s.GROUP_ROLE_ADMIN for g in member_of
-    )
-
-
 def _binding(policy: dict[str, Any], member_of: set[str]) -> bool:
     """Whether *policy* keeps something from a user in groups *member_of*."""
     if not policy["enabled"]:
@@ -66,8 +58,8 @@ def _binding(policy: dict[str, Any], member_of: set[str]) -> bool:
 
 def restrictions(user_id: str) -> list[dict[str, Any]]:
     """Every policy that keeps something from *user_id*, with any open request."""
-    groups = governance._user_groups(user_id)
-    if _is_admin(user_id, groups):
+    groups = governance.user_groups(user_id)
+    if governance.is_admin_user(user_id, groups):
         return []
     member_of = {g["id"] for g in groups}
     pending = {
@@ -133,13 +125,13 @@ def list_requests(
         .limit(500)
     )
     policies = {p["id"]: p for p in governance.list_policies()}
-    accounts = groups_dal._accounts_by_id(
+    accounts = groups_dal.accounts_by_id(
         sorted(
             {r["user_id"] for r in rows}
             | {r["decided_by"] for r in rows if r["decided_by"]}
         )
     )
-    group_names = governance._group_names()
+    group_names = governance.group_names()
     out = []
     for row in rows:
         policy = policies.get(row["policy_id"])
