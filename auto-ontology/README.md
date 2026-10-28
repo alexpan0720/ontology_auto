@@ -58,15 +58,30 @@ MCP Server 位于 [`mcp/`](./mcp/)，需单独启动（默认端口 3003）。
 
 ### 1. 准备
 
-- Docker Desktop（含 Docker Compose v2）
+- Docker Desktop（Windows / macOS，含 Docker Compose v2），或 Linux 上的 Docker Engine + Compose v2
+- 建议内存 ≥ 16 GB、可用磁盘 ≥ 20 GB（前后端镜像都在本机构建）
 - 一个 OpenAI 兼容的模型服务 API Key（下文以 [硅基流动](https://siliconflow.cn) 为例；也可用 NVIDIA API Catalog 的 `nvapi-` Key）
 - 要接入的源数据库连接信息
 
-### 2. 配置 `.env`
+### 2. 获取代码
+
+```bash
+git clone --config core.autocrlf=false https://github.com/alexpan0720/ontology_auto.git
+```
+
+```bash
+cd ontology_auto/auto-ontology
+```
+
+> **Windows 用户务必带上 `--config core.autocrlf=false`**。容器内会执行 `prisma/migrate.sh` 等 shell 脚本，Git 默认在 Windows 上把换行转成 CRLF，会导致脚本在容器里执行失败。
+
+### 3. 配置 `.env`
 
 ```bash
 cp .env.example .env
 ```
+
+`.env` 已被 `.gitignore` 忽略，里面有密码和 API Key，**不要提交，也不要直接发给别人**，每个部署方各自填写。
 
 至少需要修改以下内容（完整变量见 [`.env.example`](./.env.example)）：
 
@@ -113,17 +128,29 @@ RERANK_MODEL=BAAI/bge-reranker-v2-m3
 - pgvector 列宽固定为 **2048** 维。若向量模型原生维度不同，用 `EMBED_DIMENSIONS` 指定输出维度；更换向量模型后需重新采集。
 - `POSTGRES_PORT` 只改变宿主机映射端口，容器之间始终走内部端口。
 
-### 3. 启动
+### 4. 启动
 
 ```bash
 docker compose up -d --build
 ```
 
+首次构建需要十几到几十分钟。数据库迁移（`auto-ontology-migrate`、`frontend-migrate`）会自动执行，可用下面的命令查看各服务状态：
+
+```bash
+docker compose ps
+```
+
 浏览器打开 <http://localhost:3000>，用 `.env` 中的管理员账号登录。后端 API 在 `:3001`，pgAdmin 在 `:5050`。
+
+更新代码后重新部署：
+
+```bash
+git pull && docker compose up -d --build
+```
 
 > **页面异常？** 如果登录后左侧导航不显示或页面错乱，通常是 `AUTH_SECRET` 变更或数据库重置导致浏览器里残留旧会话 Cookie。清除 `localhost:3000` 的站点数据（或删除 `better-auth.session_token`）后重新登录即可。
 
-### 4. 接入数据并生成本体
+### 5. 接入数据并生成本体
 
 1. **设置 → 数据连接**：添加数据源。
 2. 等待 ingestion-service 完成元数据采集与语义编译（**设置 → 语义编译** 可查看进度）。
@@ -131,6 +158,13 @@ docker compose up -d --build
 4. 在 **问数** 页面直接提问。
 
 想快速体验，可在 Databricks 中执行 [`databricks_demo/demo_shop.sql`](../databricks_demo/demo_shop.sql) 生成演示数据后接入。
+
+### 部署到服务器供多人使用
+
+- **只对外开放 3000 端口**。3001（后端）、3002（采集服务）、5432（Postgres）、5050（pgAdmin）不要暴露到公网：后端信任网关转发的用户身份请求头，直接暴露会被伪造身份。
+- `APP_URL` 必须与用户实际访问的地址完全一致（如 `https://bi.example.com` 或 `http://服务器IP:3000`），否则登录会失败。
+- 正式使用建议在前面加 Nginx 等反向代理并启用 HTTPS，并停用 pgAdmin。
+- 用户由管理员在 **设置 → 用户** 中邀请，也可配置 SSO。
 
 Kubernetes 部署见 [`DEPLOYMENT.md`](./DEPLOYMENT.md)（Helm Chart 位于 [`helm/`](./helm/)）。
 
