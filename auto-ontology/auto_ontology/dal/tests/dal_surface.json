@@ -1,4 +1,13 @@
 {
+  "access_requests": {
+    "RequestError": "class(ValueError)",
+    "approve": "(request_id: 'str', *, decided_by: 'str | None', group_id: 'str | None', note: 'str | None') -> 'dict[str, Any]'",
+    "create_request": "(*, user_id: 'str', policy_id: 'str', reason: 'str | None', question: 'str | None') -> 'dict[str, Any]'",
+    "list_requests": "(*, user_id: 'str | None' = None, status: 'str | None' = None) -> 'list[dict[str, Any]]'",
+    "pending_count": "() -> 'int'",
+    "reject": "(request_id: 'str', *, decided_by: 'str | None', note: 'str | None') -> 'None'",
+    "restrictions": "(user_id: 'str') -> 'list[dict[str, Any]]'"
+  },
   "attributes": {
     "column_participates_in_semantic_fk": "(col_id: 'str') -> 'bool'",
     "fetch_attr_column_contexts": "(attr_ids: 'list[str]', *, database_name: 'str | None') -> 'dict[str, dict]'",
@@ -134,6 +143,13 @@
     "list_users_and_groups": "() -> 'dict[str, Any]'",
     "update_group": "(*, group_id: 'str', updates: 'dict[str, Any]', user_ids: 'list[str] | None') -> 'dict[str, Any] | None'"
   },
+  "insights": {
+    "dismiss": "(question_key: 'str', user_id: 'str | None') -> 'None'",
+    "dismissals": "() -> 'dict[str, datetime]'",
+    "list_outcomes": "(days: 'int') -> 'list[dict[str, Any]]'",
+    "record_outcome": "(*, user_id: 'str | None', source: 'str', question: 'str', outcome: 'str', sql: 'str | None', detail: 'str | None', message_id: 'str | None') -> 'None'",
+    "undismiss": "(question_key: 'str') -> 'bool'"
+  },
   "model_interchange": {
     "ModelImportValidationError": "class(ModelInterchangeError)",
     "ModelInterchangeError": "class(Exception)",
@@ -244,6 +260,22 @@
     "column_description_expr": "(column=Table('catalog_column', MetaData(), Column('id', Text(), table=<catalog_column>, primary_key=True, nullable=False, server_default=DefaultClause(<sqlalchemy.sql.elements.TextClause object>, for_update=False)), Column('table_id', Text(), ForeignKey('catalog_table.id'), table=<catalog_column>, nullable=False), Column('name', Text(), table=<catalog_column>, nullable=False), Column('description', Text(), table=<catalog_column>), Column('description_certified', Boolean(), table=<catalog_column>, nullable=False, server_default=DefaultClause(<sqlalchemy.sql.elements.TextClause object>, for_update=False)), Column('data_type', Text(), table=<catalog_column>), Column('sample_values', Text(), table=<catalog_column>), Column('format', Text(), table=<catalog_column>), Column('is_unique', Boolean(), table=<catalog_column>), Column('is_nullable', Boolean(), table=<catalog_column>), Column('ordinal_position', Integer(), table=<catalog_column>), Column('pii_processed', Boolean(), table=<catalog_column>, nullable=False, server_default=DefaultClause(<sqlalchemy.sql.elements.TextClause object>, for_update=False)), Column('imported_id', Text(), table=<catalog_column>), schema=None)) -> 'ColumnElement'",
     "name_contains": "(column: 'ColumnElement', search: 'str') -> 'ColumnElement'",
     "table_description_expr": "(table=Table('catalog_table', MetaData(), Column('id', Text(), table=<catalog_table>, primary_key=True, nullable=False, server_default=DefaultClause(<sqlalchemy.sql.elements.TextClause object>, for_update=False)), Column('schema_id', Text(), ForeignKey('catalog_schema.id'), table=<catalog_table>, nullable=False), Column('name', Text(), table=<catalog_table>, nullable=False), Column('description', Text(), table=<catalog_table>), Column('description_certified', Boolean(), table=<catalog_table>, nullable=False, server_default=DefaultClause(<sqlalchemy.sql.elements.TextClause object>, for_update=False)), Column('owner_id', Text(), table=<catalog_table>), Column('pk', ARRAY(Text()), table=<catalog_table>), Column('table_type', Text(), table=<catalog_table>), Column('is_junction_table', Boolean(), table=<catalog_table>, nullable=False, server_default=DefaultClause(<sqlalchemy.sql.elements.TextClause object>, for_update=False)), Column('imported_id', Text(), table=<catalog_table>), schema=None)) -> 'ColumnElement'"
+  },
+  "subscriptions": {
+    "claim_due": "(now: 'datetime', next_after: 'Callable[[dict[str, Any]], datetime | None]') -> 'list[str]'",
+    "create_channel": "(*, name: 'str', platform: 'str', webhook_url: 'str', secret: 'str | None', created_by: 'str | None') -> 'str'",
+    "create_subscription": "(values: 'dict[str, Any]') -> 'str'",
+    "delete_channel": "(channel_id: 'str') -> 'bool'",
+    "delete_subscription": "(subscription_id: 'str') -> 'bool'",
+    "get_channels": "(channel_ids: 'list[str]') -> 'list[dict[str, Any]]'",
+    "get_subscription": "(subscription_id: 'str') -> 'dict[str, Any] | None'",
+    "list_channels": "() -> 'list[dict[str, Any]]'",
+    "list_runs": "(subscription_id: 'str', limit: 'int' = 20) -> 'list[dict[str, Any]]'",
+    "list_subscriptions": "() -> 'list[dict[str, Any]]'",
+    "previous_rows": "(subscription_id: 'str') -> 'list[dict[str, Any]] | None'",
+    "record_run": "(*, subscription_id: 'str', trigger: 'str', status: 'str', alerted: 'bool', summary: 'str | None', rows: 'list[dict[str, Any]] | None', deliveries: 'list[dict[str, Any]]') -> 'dict[str, Any]'",
+    "update_channel": "(channel_id: 'str', changes: 'dict[str, Any]') -> 'bool'",
+    "update_subscription": "(subscription_id: 'str', values: 'dict[str, Any]') -> 'bool'"
   },
   "tags": {
     "apply_labels_now_matched": "(*, rule_id: 'str', tag_ids: 'list[str]', targets: 'dict[str, Select]') -> 'int'",

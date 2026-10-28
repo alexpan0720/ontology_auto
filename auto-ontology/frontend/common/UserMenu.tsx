@@ -33,6 +33,10 @@ export const UserMenu = ({ version }: { version?: string }) => {
 		{ id: user.id, role: user.role ?? null },
 		{ apiToken: ['manage'] },
 	);
+	const canRequestAccess = userCan(
+		{ id: user.id, role: user.role ?? null },
+		{ accessRequest: ['submit'] },
+	);
 
 	const handleSignOut = async () => {
 		setSigningOut(true);
@@ -55,6 +59,14 @@ export const UserMenu = ({ version }: { version?: string }) => {
 				</div>
 			}
 			items={[
+				...(canRequestAccess
+					? [
+							{
+								label: '我的权限申请',
+								onClick: () => router.push('/account/access-requests'),
+							},
+						]
+					: []),
 				...(canManageTokens
 					? [
 							{

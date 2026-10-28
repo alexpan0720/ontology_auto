@@ -42,12 +42,15 @@ node_modules
 playwright-report
 test-results
 # The `**/test` rule above is meant for test dirs, but it also matches the
-# app-router API routes `app/api/connections/test/` and `app/api/bots/*/test/`
+# app-router API routes `app/api/connections/test/`, `app/api/bots/*/test/` and
+# `app/api/push-channels/test/`
 # — which must ship in the image (dropping one makes it 404/405). Re-include them.
 !app/api/connections/test
 !app/api/connections/test/**
 !app/api/bots/*/test
 !app/api/bots/*/test/**
+!app/api/push-channels/test
+!app/api/push-channels/test/**
 
 # Logs
 *.log

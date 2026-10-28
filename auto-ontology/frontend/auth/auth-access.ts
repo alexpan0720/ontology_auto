@@ -34,6 +34,9 @@ const applicationStatements = {
 	audit: ['read'],
 	verifiedQuery: ['read', 'submit', 'manage'],
 	bot: ['read', 'manage'],
+	accessRequest: ['submit', 'manage'],
+	subscription: ['read', 'manage'],
+	insight: ['read'],
 } as const satisfies Record<string, readonly string[]>;
 
 type ApplicationStatements = typeof applicationStatements;

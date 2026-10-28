@@ -134,7 +134,10 @@ def list_requests(
     )
     policies = {p["id"]: p for p in governance.list_policies()}
     accounts = groups_dal._accounts_by_id(
-        sorted({r["user_id"] for r in rows} | {r["decided_by"] for r in rows if r["decided_by"]})
+        sorted(
+            {r["user_id"] for r in rows}
+            | {r["decided_by"] for r in rows if r["decided_by"]}
+        )
     )
     group_names = governance._group_names()
     out = []

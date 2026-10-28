@@ -11,6 +11,7 @@ import { formatDate } from '@/common/date';
 import { parseSqlResponse, type ParsedTable } from '@/lib/parseSqlResponse';
 import { SqlBlock } from '@/common/SqlBlock';
 import { AnswerFeedback } from './AnswerFeedback';
+import { AccessDeniedHint } from './AccessDeniedHint';
 import { AnswerProvenance } from './AnswerProvenance';
 import { DynamicTable } from './DynamicTable';
 import { FormattedContent } from './FormattedContent';
@@ -112,6 +113,8 @@ export const MessageBubble = ({ message, conversationId, question }: MessageBubb
 						className="text-sm leading-relaxed"
 					/>
 				)}
+
+				{!isUser && <AccessDeniedHint content={message.content} question={question} />}
 
 				{showSql && (
 					<SqlBlock

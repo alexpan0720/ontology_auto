@@ -20,7 +20,10 @@
 		"accessPolicy": ["read", "manage"],
 		"audit": ["read"],
 		"verifiedQuery": ["read", "submit", "manage"],
-		"bot": ["read", "manage"]
+		"bot": ["read", "manage"],
+		"accessRequest": ["submit", "manage"],
+		"subscription": ["read", "manage"],
+		"insight": ["read"]
 	},
 	"viewer": {
 		"acronym": ["read"],
@@ -33,6 +36,7 @@
 		"zone": ["read"],
 		"tag": ["read"],
 		"apiToken": ["manage"],
-		"verifiedQuery": ["submit"]
+		"verifiedQuery": ["submit"],
+		"accessRequest": ["submit"]
 	}
 }

@@ -162,12 +162,19 @@ def format_message(
             sub.get("alert_op"),
             sub.get("alert_value"),
         )
-        parts.append(f"**触发预警（{rule}）**")
-        parts.extend(f"- {line}" for line in alert.lines[:MESSAGE_ROWS])
+        # A list's items on consecutive lines, so it renders as one tight list.
+        parts.append(
+            f"**触发预警（{rule}）**\n"
+            + "\n".join(f"- {line}" for line in alert.lines[:MESSAGE_ROWS])
+        )
     if rows:
-        parts.append("**最新结果**")
-        for row in rows[:MESSAGE_ROWS]:
-            parts.append("- " + "｜".join(f"{k}：{_cell(v)}" for k, v in row.items()))
+        parts.append(
+            "**最新结果**\n"
+            + "\n".join(
+                "- " + "｜".join(f"{k}：{_cell(v)}" for k, v in row.items())
+                for row in rows[:MESSAGE_ROWS]
+            )
+        )
         if len(rows) > MESSAGE_ROWS:
             parts.append(f"（共 {len(rows)} 行，仅显示前 {MESSAGE_ROWS} 行）")
     else:

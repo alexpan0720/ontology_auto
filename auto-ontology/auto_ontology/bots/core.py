@@ -231,10 +231,13 @@ def format_provenance(provenance: dict[str, Any] | None) -> str:
 def format_answer(event: dict[str, Any]) -> tuple[str, str]:
     """``(title, markdown)`` for the chat message answering *event*."""
     if event.get("type") == "error":
-        return (
-            "查询失败",
-            f"抱歉，这次没能完成查询：{event.get('message') or '未知错误'}",
+        message = str(event.get("message") or "未知错误")
+        hint = (
+            "\n\n如需访问，可登录 alexpan 本体网页端，在右上角头像菜单 →「我的权限申请」中提交申请。"
+            if "没有权限" in message
+            else ""
         )
+        return "查询失败", f"抱歉，这次没能完成查询：{message}{hint}"
     answer = event.get("answer") or {}
     parts = [str(answer.get("response") or "").strip()[:MAX_TEXT]]
     table = format_table(_rows(answer))

@@ -47,6 +47,9 @@ const GLOSSARY_IMPORT_NAV_ITEM: NavItem = {
 	label: '文档提取术语',
 	href: '/settings/glossary-import',
 };
+const ACCESS_REQUESTS_NAV_ITEM: NavItem = { label: '权限申请', href: '/settings/access-requests' };
+const INSIGHTS_NAV_ITEM: NavItem = { label: '问数质量', href: '/settings/insights' };
+const SUBSCRIPTIONS_NAV_ITEM: NavItem = { label: '订阅与预警', href: '/settings/subscriptions' };
 const BOTS_NAV_ITEM: NavItem = { label: '机器人', href: '/settings/bots' };
 const IMPORT_EXPORT_NAV_ITEM: NavItem = {
 	label: '导入 / 导出',
@@ -87,12 +90,15 @@ export const SettingsNav = ({ connectionsEnvManaged }: SettingsNavProps) => {
 		GLOSSARY_IMPORT_NAV_ITEM,
 		USERS_NAV_ITEM,
 		ACCESS_CONTROL_NAV_ITEM,
+		ACCESS_REQUESTS_NAV_ITEM,
 		ACCESS_AUDIT_NAV_ITEM,
 		VERIFIED_QUERIES_NAV_ITEM,
+		INSIGHTS_NAV_ITEM,
 		SSO_NAV_ITEM,
 		SEMANTIC_COMPILATION_NAV_ITEM,
 		AGENT_SETTINGS_NAV_ITEM,
 		BOTS_NAV_ITEM,
+		SUBSCRIPTIONS_NAV_ITEM,
 		IMPORT_EXPORT_NAV_ITEM,
 	);
 
