@@ -36,6 +36,13 @@ from auto_ontology.server.health.router import router as health_router  # noqa: 
 from auto_ontology.server.governance.router import router as governance_router  # noqa: E402
 from auto_ontology.server.glossary_import.router import router as glossary_import_router  # noqa: E402
 from auto_ontology.server.bots.router import router as bots_router  # noqa: E402
+from auto_ontology.server.insights.router import router as insights_router  # noqa: E402
+from auto_ontology.server.access_requests.router import (  # noqa: E402
+    router as access_requests_router,
+)
+from auto_ontology.server.subscriptions.router import (  # noqa: E402
+    router as subscriptions_router,
+)
 from auto_ontology.server.metadata.router import router as metadata_router  # noqa: E402
 from auto_ontology.server.rules.router import router as rules_router  # noqa: E402
 from auto_ontology.server.semantic_compilation.router import (  # noqa: E402
@@ -109,6 +116,9 @@ def create_app() -> FastAPI:
     app.include_router(zones_router, prefix="/api", tags=["zones"])
     app.include_router(governance_router, prefix="/api", tags=["governance"])
     app.include_router(bots_router, prefix="/api", tags=["bots"])
+    app.include_router(insights_router, prefix="/api", tags=["insights"])
+    app.include_router(access_requests_router, prefix="/api", tags=["access-requests"])
+    app.include_router(subscriptions_router, prefix="/api", tags=["subscriptions"])
     app.include_router(glossary_import_router, prefix="/api", tags=["glossary-import"])
     app.include_router(users_router, prefix="/api", tags=["users"])
     app.include_router(tags_router, prefix="/api", tags=["tags"])

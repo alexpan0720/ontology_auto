@@ -4,192 +4,186 @@ All rights reserved.
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Auto Ontology
+# alexpan 本体 —— 企业数据语义层与智能问数
 
-Agents can retrieve documents and query databases, but reliability gates agentic analytics: a revenue metric answered faster is worth nothing if the number is wrong. Agents need a context layer that tells them where data lives, what it means, whether to use it, how to use it, where it came from, and what is similar. NVIDIA Auto Ontology is an open library that builds that layer from enterprise metadata, reconciles definitions across systems, and exposes it to any agent harness through MCP, CLI, and API. It complements the semantic models customers already own.
-
-It enables developers to:
-
-- Discover: generate enterprise ontologies from metadata; connect existing ontologies and semantic models; build AI-ready knowledge graphs.
-- Ground: give agents trusted business meaning for metrics, entities, and relationships; reconcile inconsistent definitions across systems.
-- Validate: check generated queries against certified definitions and lineage; return provenance with every answer.
-- Expose: serve context to any agent harness through MCP, CLI, and API.
-Learn: fold certified corrections and usage back into the ontology, so shared context improves with every question.
-
-## Benchmarks
-
-To run a text-to-SQL benchmark such as BIRD, refer to the
-[ontology SQL evaluation repository](https://github.com/NVIDIA/ontology-sql-eval/).
-
-> **Licensing & contributions.** Auto Ontology is distributed under the
-> [Apache License 2.0](./LICENSE). Third-party open-source components
-> bundled, linked, or otherwise used by this project are listed in
-> [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md). **This project
-> is currently not accepting external contributions.**
+本项目基于 NVIDIA 开源的 [Auto Ontology](https://github.com/NVIDIA/auto-ontology)
+二次开发：从数据库元数据自动构建业务本体（语义层），让用户和 AI Agent 用自然语言问数，
+并在此之上补充了**中文界面、国内模型接入、数据治理、钉钉 / 飞书问数机器人**等能力。
 
 <p>
-<img src="./docs/assets/arch.png" alt="Auto Ontology Architecture" width="800">
+<img src="./docs/assets/arch.png" alt="架构图" width="800">
 </p>
 
-## Key Features
+## 相比上游的主要改动
 
-- **Natural-language querying** of structured data — questions are translated to
-  SQL and executed against connected databases, powered by NVIDIA NIM.
-- **Semantic catalog / ontology layer** over relational sources, stored in
-  Postgres alongside the catalog it describes.
-- **Authentication & RBAC** —using [Better Auth](https://github.com/better-auth/better-auth).
-- **Web UI** for chat, analysis, data catalog, analytics, and settings.
-- **Flexible deployment** — Helm chart for Kubernetes or Docker Compose for a
-  local stack.
+| 方向 | 内容 |
+| --- | --- |
+| 本地化 | 全中文 Web 界面，品牌为「alexpan 本体」 |
+| 模型接入 | 支持任意 OpenAI 兼容接口（硅基流动、DeepSeek 等），不再强依赖 NVIDIA NIM；新增 `EMBED_DIMENSIONS` 适配向量维度 |
+| 答案溯源 | 每个回答附带所用表、字段、术语与 SQL 的来源 |
+| 数据治理 | 列级 / 行级访问策略、字段脱敏策略、用户组、权限申请审批、访问审计 |
+| 质量闭环 | 已验证查询库、答案点赞 / 点踩、问题结果分类与「失败问题看板」 |
+| 术语导入 | 上传业务文档（词汇表 / 指标口径），由大模型抽取候选术语后人工确认入库 |
+| PII 识别 | 自动识别敏感字段，可配合脱敏策略使用 |
+| IM 机器人 | 钉钉、飞书机器人问数，按提问人账号权限执行查询 |
+| 指标订阅（开发中） | 定时执行 SQL、阈值 / 环比告警、推送到钉钉 / 飞书群，后端代码已就绪，尚未接入路由和界面 |
+| 演示数据 | [`../databricks_demo/demo_shop.sql`](../databricks_demo/demo_shop.sql)：带中文注释和主外键的电商数据集 |
 
-## Software Components
+## 功能概览
 
-| Component           | Technology                                                             | Role                                       | Default port |
-| ------------------- | ---------------------------------------------------------------------- | ------------------------------------------ | ------------ |
-| Frontend            | Next.js 16 (React 19, TypeScript, Tailwind CSS 4), Better Auth, Prisma | Web UI, authentication, API gateway        | 3000         |
-| Backend             | FastAPI (Python 3.12+), LangChain                                      | Chat / NL-to-SQL, catalog, datasource APIs | 3001         |
-| Ingestion worker    | FastAPI (Python 3.12+)                                                 | Ingests tabular data and writes embeddings | 3002         |
-| Postgres + pgvector | Relational Database                                                    | App metadata, the catalog and ontology, vector store | 5432 |
-| HashiCorp Vault     | Optional                                                               | Secure storage of connection credentials   | —            |
+- **自然语言问数**：问题经多阶段 Agent 流水线（候选表检索、实体解析、SQL 生成与校验、空结果修复）转为 SQL 执行，自动生成图表；支持多轮对话追问。
+- **语义层 / 本体**：自动抽取表、字段、主外键、语义外键、业务术语与计算口径，存储在 Postgres（pgvector）中，可在「数据目录」「术语」页面查看和编辑。
+- **数据源**：Postgres、MySQL、Snowflake、Databricks、ClickHouse、Trino、Kyuubi、DuckDB、SQLite、HeavyDB。
+- **权限与认证**：基于 Better Auth 的账号体系、RBAC、SSO、API Token。
+- **对外接口**：REST API、MCP Server、Agent Skills。
+- **预测分析（可选）**：配置 `KUMO_RFM_API_KEY` 后启用 KumoRFM 预测查询。
 
-### NVIDIA NIM
+## 服务组成
 
-Auto Ontology uses NVIDIA NIM endpoints for inference — either the hosted
-[NVIDIA API catalog](https://build.nvidia.com) (`integrate.api.nvidia.com`) or
-self-hosted NIMs. The defaults in `.env.example` are:
+`docker compose` 会启动以下服务：
 
-- **LLM:** `nvidia/nemotron-3-nano-30b-a3b`
-- **Embeddings:** `nvidia/nemotron-3-embed-1b`
-- **Reranking:** `nvidia/llama-nemotron-rerank-vl-1b-v2`
+| 服务 | 技术栈 | 作用 | 端口 |
+| --- | --- | --- | --- |
+| `auto-ontology-frontend` | Next.js 16、React 19、Better Auth、Prisma | Web 界面、认证、API 网关 | 3000 |
+| `auto-ontology` | FastAPI、LangChain / LangGraph | 问数、目录、数据源、治理等后端 API | 3001 |
+| `ingestion-service` | FastAPI | 元数据采集、PII 识别、语义编译、生成向量 | 3002 |
+| `bot-service` | Python | 钉钉 / 飞书机器人（在设置中启用前处于空闲） | — |
+| `postgres` | pgvector/pg17 | 应用数据、目录与本体、向量库 | 5432 |
+| `pgadmin` | pgAdmin 4 | 数据库管理（可选） | 5050 |
+| `auto-ontology-migrate` / `frontend-migrate` | Alembic / Prisma | 一次性数据库迁移任务 | — |
 
-The endpoints and models are configured via the `DEFAULT_MODELS_ENDPOINT`, `DEFAULT_MODELS_MODEL`,
-`EMBED_ENDPOINT`, and `EMBED_MODEL` environment variables and require a
-`DEFAULT_MODELS_API_KEY`.
+MCP Server 位于 [`mcp/`](./mcp/)，需单独启动（默认端口 3003）。
 
-#### Model triplets
+## 快速开始（Docker Compose）
 
-Each model role is configured by a **triplet** of environment variables —
-`<PREFIX>_ENDPOINT` (URL), `<PREFIX>_API_KEY`, and `<PREFIX>_MODEL`:
+### 1. 准备
 
-| Prefix           | Role                                                        |
-| ---------------- | ----------------------------------------------------------- |
-| `DEFAULT_MODELS` | Shared default; every field below falls back to it.         |
-| `REASONING`      | Main chat / NL-to-SQL model.                                |
-| `NON_REASONING`  | Lighter model used for entity extraction.                   |
-| `EMBED`          | Text-embedding model (must match between ingest and query). |
-| `RERANK`         | Reranker used by the retrieval flow.                        |
+- Docker Desktop（含 Docker Compose v2）
+- 一个 OpenAI 兼容的模型服务 API Key（下文以 [硅基流动](https://siliconflow.cn) 为例；也可用 NVIDIA API Catalog 的 `nvapi-` Key）
+- 要接入的源数据库连接信息
 
-You can set a full triplet, only some of its fields, or none at all — any field
-left unset falls back to the matching `DEFAULT_MODELS_<FIELD>`. So the simplest
-setup is to fill in `DEFAULT_MODELS_*` and override per-triplet fields only where
-they differ (e.g. `EMBED_MODEL`, `NON_REASONING_MODEL`). `*_API_KEY` also falls
-back to the legacy `NVIDIA_API_KEY` for backward compatibility.
+### 2. 配置 `.env`
 
-## Deployment
+```bash
+cp .env.example .env
+```
 
-### Prerequisites
+至少需要修改以下内容（完整变量见 [`.env.example`](./.env.example)）：
 
-- **Docker** with **Docker Compose v2** (e.g. Docker Desktop on macOS/Windows,
-  Docker Engine on Linux) for the local stack. For Kubernetes deployments see
-  [`DEPLOYMENT.md`](./DEPLOYMENT.md).
-- An **NVIDIA API key** (`nvapi-...`) for NVIDIA NIM (chat and ingestion) from
-  the NVIDIA API catalog at <https://build.nvidia.com>.
-- Connection details for the source database(s) you want to query
-  (Databricks, Postgres, Snowflake, or DuckDB).
+```ini
+# 数据库
+POSTGRES_PASSWORD=<至少 8 位>
 
-### Installation
+# 认证（必填，否则所有页面都会报 Better Auth "default secret" 错误）
+AUTH_SECRET=<一段足够长的随机字符串>
+APP_URL=http://localhost:3000
+AUTO_ONTOLOGY_ADMIN_EMAIL=admin@example.com
+AUTO_ONTOLOGY_ADMIN_PASSWORD=<管理员初始密码>
 
-**Kubernetes**
+# 模型（硅基流动示例）
+DEFAULT_MODELS_ENDPOINT=https://api.siliconflow.cn/v1
+DEFAULT_MODELS_API_KEY=<你的 Key>
+DEFAULT_MODELS_MODEL=deepseek-ai/DeepSeek-V3
+REASONING_MODEL=deepseek-ai/DeepSeek-V3
+NON_REASONING_MODEL=deepseek-ai/DeepSeek-V3
 
-To deploy Auto Ontology on a Kubernetes cluster, see [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+EMBED_ENDPOINT=https://api.siliconflow.cn/v1
+EMBED_API_KEY=<你的 Key>
+EMBED_MODEL=Qwen/Qwen3-Embedding-8B
+EMBED_DIMENSIONS=2048
 
-**Local (Docker Compose)**
+RERANK_ENDPOINT=https://api.siliconflow.cn/v1/rerank
+RERANK_API_KEY=<你的 Key>
+RERANK_MODEL=BAAI/bge-reranker-v2-m3
+```
 
-1. Clone the repository:
+说明：
 
-   ```bash
-   git clone <repo-url> auto_ontology && cd auto_ontology
-   ```
+- 每种模型角色由 `<前缀>_ENDPOINT` / `<前缀>_API_KEY` / `<前缀>_MODEL` 三个变量配置，未设置的字段回退到 `DEFAULT_MODELS_*`。
 
-2. Create your environment file (.env) from the template and fill in the values
-   (Postgres credentials, `DEFAULT_MODELS_API_KEY`, `CONNECTION_STRINGS`, etc.).
-   See [`.env.example`](./.env.example) for the full list of variables:
+  | 前缀 | 作用 |
+  | --- | --- |
+  | `DEFAULT_MODELS` | 公共默认值 |
+  | `REASONING` | 主模型：问数、SQL 生成 |
+  | `NON_REASONING` | 轻量模型：实体抽取、术语抽取 |
+  | `EMBED` | 向量模型（采集和查询必须使用同一个） |
+  | `RERANK` | 重排序模型 |
 
-   ```bash
-   cp .env.example .env
-   # edit .env
-   ```
+- 端点不在 `nvidia.com` 域名下时，会自动走 OpenAI 兼容客户端，并用 function calling 获取结构化输出。
+- pgvector 列宽固定为 **2048** 维。若向量模型原生维度不同，用 `EMBED_DIMENSIONS` 指定输出维度；更换向量模型后需重新采集。
+- `POSTGRES_PORT` 只改变宿主机映射端口，容器之间始终走内部端口。
 
-   Note:
-   - `AUTH_SECRET` and `APP_URL` are **required** — without them every page
-     fails with a Better Auth "default secret" error.
-   - `POSTGRES_PORT` only changes the **host-side** port mapping (set it if
-     5432 is already taken on your machine); containers always reach Postgres
-     on the internal network port.
+### 3. 启动
 
-3. Build the images and start the stack:
+```bash
+docker compose up -d --build
+```
 
-   ```bash
-   docker compose up -d --build
-   ```
+浏览器打开 <http://localhost:3000>，用 `.env` 中的管理员账号登录。后端 API 在 `:3001`，pgAdmin 在 `:5050`。
 
-   This builds the backend (`auto_ontology`) and frontend (`auto-ontology-frontend`) images, brings
-   up Postgres and pgAdmin, runs the one-shot `frontend-migrate` job to
-   sync the database schema, and starts the app (backend, ingestion service,
-   and frontend).
+> **页面异常？** 如果登录后左侧导航不显示或页面错乱，通常是 `AUTH_SECRET` 变更或数据库重置导致浏览器里残留旧会话 Cookie。清除 `localhost:3000` 的站点数据（或删除 `better-auth.session_token`）后重新登录即可。
 
-4. Open the UI at <http://localhost:3000> (the backend API is on `:3001`,
-   pgAdmin on `:5050`).
+### 4. 接入数据并生成本体
 
-   > **Troubleshooting:** if the UI loads without the left navigation panel
-   > (or otherwise looks broken after a restart), your browser is holding a
-   > stale session cookie — this happens when `AUTH_SECRET` changes or the
-   > database is reset. Clear the site data for `localhost:3000` (or delete
-   > the `better-auth.session_token` cookie) and sign in again.
+1. **设置 → 数据连接**：添加数据源。
+2. 等待 ingestion-service 完成元数据采集与语义编译（**设置 → 语义编译** 可查看进度）。
+3. 在 **数据目录**、**术语** 页面检查和补充语义；可在 **设置 → 术语导入** 上传业务文档批量补充术语。
+4. 在 **问数** 页面直接提问。
 
-## Connections Management
+想快速体验，可在 Databricks 中执行 [`databricks_demo/demo_shop.sql`](../databricks_demo/demo_shop.sql) 生成演示数据后接入。
 
-Auto Ontology resolves the source databases it connects to from two sources:
+Kubernetes 部署见 [`DEPLOYMENT.md`](./DEPLOYMENT.md)（Helm Chart 位于 [`helm/`](./helm/)）。
 
-1. **Added through the UI** — connections created from within the app. With this
-   option the connection credentials are **stored in plaintext in Postgres unless
-   Vault is configured**:
-   - **Without Vault:** the full connection object (including the password) is
-     JSON-serialized and stored, unencrypted, on the catalog's database row.
-   - **With Vault:** the credentials are written to Vault, keyed by the database
-     name, and the catalog row stores no credentials (the database name is the
-     lookup key — there is no separate reference field).
+## 页面导航
 
-   Vault is enabled only when all of `VAULT_ADDR`, `VAULT_NAMESPACE`,
-   `VAULT_ROLE_ID`, and `VAULT_SECRET_ID` are set (`VAULT_AUTH_MOUNT` and
-   `VAULT_KV_MOUNT` are optional overrides). It is off by default; a partial
-   configuration is ignored with a warning and falls back to plaintext storage.
+| 页面 | 路径 | 说明 |
+| --- | --- | --- |
+| 问数 | `/chat` | 自然语言问答、图表、多轮追问、答案溯源与反馈 |
+| 分析 / 洞察 | `/analysis`、`/analytics` | 分析结果、问题结果统计与失败问题看板 |
+| 数据目录 | `/data`、`/discovery`、`/exploration` | 表、字段、关系浏览与探索 |
+| 术语 | `/terms` | 业务术语与指标口径 |
+| 设置 | `/settings/*` | 数据连接、语义编译、规则、标签、区域、用户、SSO、访问控制、访问审计、PII、已验证查询、术语导入、导入导出、机器人、Agent 设置 |
+| API Token | `/account/api-tokens` | 生成脚本调用用的 Token |
 
-2. **`CONNECTION_STRINGS` environment variable** — a comma-separated list of
-   connection strings supplied at deploy time (e.g. the Helm
-   `--set connectionStrings=<CONNECTION-STRINGS>` flag). This is a fallback: it
-   is used only when there are no UI-added connections.
+## 数据治理
 
-## Authentication
+在 **设置 → 访问控制** 中按用户组配置策略，管理员不受策略限制：
 
-Auto Ontology Supports SSO for authentication.
-The Redirect URI should be configured in the IdP as: APP_URL/api/auth/sso/callback
+- **列策略**：禁止读取指定字段。SQL 中任何位置引用该字段（含 `SELECT *`）都会被拒绝。
+- **行策略**：把对表的引用改写为按谓词过滤后的子查询，只返回用户有权看到的行。
+- **脱敏策略**：被脱敏字段在所有用法中（查询列、分组、过滤、关联）都只能看到脱敏后的值。
 
-### API tokens (scripting)
+策略在数据库连接器层面统一强制执行，问数主查询、取值探测、空结果修复等所有 SQL 都会经过检查；无法确定安全的 SQL（解析失败、多语句等）一律拒绝。所有查询记录在 **设置 → 访问审计**。
 
-A browser signs in and gets a session cookie, which a script cannot obtain. For
-scripts, notebooks, and scheduled jobs, mint an **API token** instead:
+用户可在被拦截时发起**权限申请**，管理员审批后会被加入策略放行的用户组（默认使用该策略专属的「授权」组，不影响其他人）。
 
-1. Open the user menu (top right) → **API Tokens** → **New token**.
-2. Name it, optionally pick an expiry (default: never), and **copy the token**.
-   Auto Ontology stores only a SHA-256 hash of it, so it is shown exactly once. Losing it
-   means minting a new one.
+## 钉钉 / 飞书机器人
 
-Send it as `x-api-key` on any `/api/...` call — `Authorization: Bearer <token>`
-works too:
+1. 在钉钉或飞书开放平台创建企业内部应用并开启机器人能力，获取 App ID / App Secret。
+2. 在 **设置 → 机器人** 填写并启用。`bot-service` 通过 Stream / 长连接主动连接平台，**无需公网地址**。
+3. 在群聊中 @机器人 或私聊提问。
+
+机器人本身不直接查库，而是以「发送人邮箱对应的账号」调用与 Web 端相同的问数接口，访问策略、脱敏和审计全部生效；找不到对应账号时按「不属于任何用户组」的最严格权限执行。
+
+## 连接凭据存储
+
+数据源有两种来源：
+
+1. **在界面中添加**：未配置 Vault 时，连接信息（含密码）以**明文 JSON** 存在 Postgres 中；配置了 Vault（`VAULT_ADDR`、`VAULT_NAMESPACE`、`VAULT_ROLE_ID`、`VAULT_SECRET_ID` 全部设置）时凭据写入 Vault，数据库中不保存凭据。
+2. **环境变量 `CONNECTION_STRINGS`**：逗号分隔的连接串，仅在界面中没有任何连接时使用。
+
+## 认证与 API
+
+### SSO
+
+支持 SSO 登录，在身份提供方中配置回调地址：`<APP_URL>/api/auth/sso/callback`。
+
+### API Token
+
+脚本、Notebook、定时任务请使用 API Token：右上角用户菜单 → **API Tokens** → **New token**。Token 只显示一次（服务端仅保存 SHA-256 哈希）。
 
 ```sh
-curl -H "x-api-key: $AUTO_ONTOLOGY_API_TOKEN" https://auto_ontology.example.com/api/terms
+curl -H "x-api-key: $AUTO_ONTOLOGY_API_TOKEN" http://localhost:3000/api/terms
 ```
 
 ```python
@@ -199,128 +193,86 @@ import requests
 session = requests.Session()
 session.headers["x-api-key"] = os.environ["AUTO_ONTOLOGY_API_TOKEN"]
 
-terms = session.get("https://auto_ontology.example.com/api/terms").json()
-
+terms = session.get("http://localhost:3000/api/terms").json()
 answer = session.post(
-    "https://auto_ontology.example.com/api/chat/completions",
-    json={"question": "How many orders shipped last week?"},
-).json()
+    "http://localhost:3000/api/chat/completions",
+    json={"question": "上周发货了多少订单？"},
+)
 ```
 
-Things worth knowing:
+- Token 以所有者身份执行，权限与该用户在浏览器中完全一致（包括数据治理策略）。
+- 也可用 `Authorization: Bearer <token>`。
+- 删除 Token 或禁用用户后立即失效；Token 不能用来创建或吊销 Token。
+- 完整接口定义见 [`docs/openapi/auto-ontology-api.json`](./docs/openapi/auto-ontology-api.json)。
 
-- **A token acts as its owner.** It carries no permissions of its own — every
-  call is authorized against the owner's role, exactly as it would be in the
-  browser. A viewer's token cannot do admin things.
-- **The whole API surface accepts it.** Authentication is resolved in one place
-  (`frontend/auth/resolve-user.ts`) for every route, so any endpoint in
-  [`docs/openapi/auto-ontology-api.json`](./docs/openapi/auto-ontology-api.json) that is not
-  `withPublic` works with a token.
-- **Revocation is immediate.** Delete the token in the UI, or delete/ban the
-  owning user, and the next request with it gets a 401.
-- **Tokens cannot manage tokens.** Creating and revoking requires a signed-in
-  session, so a leaked token cannot issue itself successors.
-  
-## Agent API conversations
+### 问数接口与多轮对话
 
-Public clients call the authenticated Next.js gateway at
-`POST /api/chat/completions`. The response is an SSE stream containing `step`,
-`result`, or `error` events, followed by `[DONE]`.
+`POST /api/chat/completions` 返回 SSE 流，事件类型为 `step`、`result`、`error`，以 `[DONE]` 结束。
 
-`conversation_id` is optional:
-
-- Omit it for a stateless, one-shot request.
-- Supply a client-generated UUID to create or continue a conversation.
-- Reuse the same UUID for every turn in the thread. Wait for `[DONE]` before
-  sending the next turn; overlapping requests for one conversation return
-  `409 Conversation in progress`.
+- 不传 `conversation_id`：单次无状态请求。
+- 传入客户端生成的 UUID：创建或延续一个会话，后续轮次复用同一个 UUID；必须等上一轮 `[DONE]` 后再发下一轮，否则返回 `409`。
 
 ```json
 {
-  "question": "What about last month?",
+  "question": "那上个月呢？",
   "conversation_id": "d61d8aa3-d496-4fa7-97ce-4f831c162e7f"
 }
 ```
 
-For conversational requests, FastAPI loads up to the five most recent completed
-turns (bounded to 12,000 characters) and rewrites contextual input such as
-“What about August?” into a standalone question before running the existing
-text-to-SQL graph. Independent questions are passed through unchanged. Internal
-agent thoughts, chart payloads, errors, and raw SQL result sets are not reused as
-context.
+后端会读取最近 5 轮（不超过 12,000 字符）已完成的对话，把「那上个月呢？」这类追问改写为独立问题后再执行。通过 API 创建的会话可在界面中用 `/chat?focus=<conversation_id>` 打开。
 
-Conversation history is scoped to the authenticated Auto Ontology user. Browser and
-service callers should use the Next.js gateway, which resolves the user and
-forwards the internal `x-auto-ontology-user-id` header to FastAPI. The FastAPI port is a
-trusted internal service boundary: it must not be exposed publicly because that
-header is not independently verified by FastAPI. A direct FastAPI request
-without `conversation_id` remains stateless; a direct request with
-`conversation_id` requires the trusted identity header.
+> **安全提示**：FastAPI 端口（3001）是内部服务边界，信任网关转发的 `x-auto-ontology-user-id` 请求头，**不要暴露到公网**。外部调用请一律走 Next.js 网关（3000）。
 
-The web UI manages the UUID automatically. An API-created conversation can be
-opened in the UI at `/chat?focus=<conversation_id>` when it belongs to the
-signed-in user.
+## MCP 与 Agent Skills
 
-## Agent skills
+- **MCP Server**：Cursor、Claude Desktop 等可通过 MCP 查询数据，见 [`mcp/`](./mcp/) 和 [`docs/mcp.md`](./docs/mcp.md)。
+- **Agent Skills**：位于 [`skills/`](./skills/)（`nvidia-ontology-setup`、`nvidia-ontology-management`、`nvidia-ontology-query`）。编码 Agent 入口见 [`AGENTS.md`](./AGENTS.md)。
 
-Coding agents: start at [`AGENTS.md`](./AGENTS.md). Skills live in
-[`skills/`](./skills/) (`nvidia-ontology-setup`, `nvidia-ontology-management`, `nvidia-ontology-query`).
-Maintainers keep using [`CLAUDE.md`](./CLAUDE.md).
+## 开发
 
-## MCP server
+| 目录 | 内容 |
+| --- | --- |
+| `auto_ontology/` | Python 后端：`server/`（API）、`retrieval/`（问数流水线）、`semantic/`（语义编译）、`catalog/`（元数据）、`connectors/`、`governance/`、`bots/`、`subscriptions/` 等 |
+| `frontend/` | Next.js 前端，见 [`frontend/README.md`](./frontend/README.md) |
+| `alembic/` | 后端数据库迁移（`public` schema）；前端表由 Prisma 管理（`frontend` schema） |
+| `dev_tools/` | 本地采集、测试数据、OpenAPI 生成等脚本，见 [`dev_tools/README.md`](./dev_tools/README.md) |
+| `helm/` | Kubernetes Helm Chart |
 
-Agent harnesses such as Cursor and Claude Desktop can query your data through
-Auto Ontology's [MCP](https://modelcontextprotocol.io) server. See
-[`mcp/`](./mcp/) to run it and [`docs/mcp.md`](./docs/mcp.md) for the details.
+本机有 `uv` 时可直接启动后端（热重载）并运行检查：
 
-## License
-
-Auto Ontology is licensed under the [Apache License, Version 2.0](./LICENSE).
-SPDX identifier: `Apache-2.0`.
-
-Each NVIDIA-authored source file in this repository carries an SPDX header
-of the form:
-
-```text
-SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-All rights reserved.
-SPDX-License-Identifier: Apache-2.0
+```bash
+uv run uvicorn auto_ontology.server.__main__:create_app --factory --reload --host 127.0.0.1 --port 3001
 ```
 
-Third-party open-source components used by Auto Ontology are enumerated, with their
-upstream licenses and project URLs, in
-[`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md). Components added by the
-container images are listed separately in
-[`CONTAINER_THIRD_PARTY_NOTICES.md`](./CONTAINER_THIRD_PARTY_NOTICES.md).
+```bash
+uv run ruff check auto_ontology/ && uv run pytest auto_ontology dev_tools -q
+```
 
-## Notice and Disclaimer
+修改任何路由的签名或 docstring 后，需运行 `uv run python -m dev_tools.generate_backend_openapi` 更新 `docs/openapi/*.json`。
 
-NOTICE AND DISCLAIMER: This software automatically retrieves, accesses or
-interacts with external materials. Those retrieved materials are not
-distributed with this software and are governed solely by separate terms,
-conditions and licenses. You are solely responsible for finding, reviewing and
-complying with all applicable terms, conditions, and licenses, and for
-verifying the security, integrity and suitability of any retrieved materials
-for your specific use case. This software is provided "AS IS", without warranty
-of any kind. The author makes no representations or warranties regarding any
-retrieved materials, and assumes no liability for any losses, damages,
-liabilities or legal consequences from your use or inability to use this
-software or any retrieved materials. Use this software and the retrieved
-materials at your own risk.
+没有 `uv` 时，也可以在后端镜像内跑测试：
 
-External materials Auto Ontology interacts with at run time:
+```bash
+docker compose run --rm --entrypoint sh auto-ontology -c "python -m pytest auto_ontology -q"
+```
 
-| Material | When | Terms |
-| --- | --- | --- |
-| NVIDIA-hosted model APIs ([build.nvidia.com](https://build.nvidia.com), `integrate.api.nvidia.com`) for LLM, embedding, and reranking | Chat, ingestion, and semantic compilation, with the default model configuration | Terms of the NVIDIA API catalog and of each model |
-| Any other OpenAI-compatible model endpoint you configure (`*_ENDPOINT` / `*_MODEL`) | Same | Terms of that provider and model |
-| KumoRFM predictive-query service | Only when `KUMO_RFM_API_KEY` is set | Kumo's terms |
-| Your source databases | Ingestion, profiling, and query execution | Your agreements for those systems |
+（镜像默认不含 pytest，需要先在容器内安装。）
 
-## Contributing
+## 外部依赖与免责声明
 
-**This project is currently not accepting contributions.** Issues, pull
-requests, and patches submitted from outside the Auto Ontology maintainer team will
-not be reviewed or merged. Security-relevant reports should follow the
-process described in [`SECURITY.md`](./SECURITY.md). Maintainer workflow is in
-[`CONTRIBUTING.md`](./CONTRIBUTING.md).
+运行时会与以下外部服务交互，请自行遵守其条款：
+
+| 对象 | 何时 |
+| --- | --- |
+| 你配置的模型服务（`*_ENDPOINT`，如硅基流动、NVIDIA API Catalog） | 问数、采集、语义编译 |
+| 钉钉 / 飞书开放平台 | 启用机器人或推送时 |
+| KumoRFM | 仅设置 `KUMO_RFM_API_KEY` 时 |
+| 你的源数据库 | 采集、数据剖析、执行查询 |
+
+本软件按「原样」提供，不附带任何担保。
+
+## 许可证
+
+基于 [Apache License 2.0](./LICENSE) 发布，原始代码版权归 NVIDIA CORPORATION & AFFILIATES 所有。
+第三方组件见 [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md) 与
+[`CONTAINER_THIRD_PARTY_NOTICES.md`](./CONTAINER_THIRD_PARTY_NOTICES.md)。

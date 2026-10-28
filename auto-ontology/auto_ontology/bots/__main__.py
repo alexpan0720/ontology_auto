@@ -4,6 +4,9 @@
 
 """Bot service: keep one process per enabled platform, in step with its settings.
 
+It also starts due metric subscriptions (see
+:mod:`auto_ontology.subscriptions.scheduler`) on the same polling loop.
+
 Each platform runs in its own process because neither SDK can be stopped
 cleanly from outside its blocking loop: changing a platform's credentials, or
 disabling it, terminates that process and starts a fresh one.
@@ -19,7 +22,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from auto_ontology.bots import config
+from auto_ontology.bots.core import BACKEND_URL
 from auto_ontology.bots.serve import serve
+from auto_ontology.subscriptions.scheduler import Scheduler
 
 logger = logging.getLogger("auto_ontology.bots")
 
@@ -106,6 +111,7 @@ def main() -> None:
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
     supervisor = Supervisor()
+    scheduler = Scheduler(BACKEND_URL)
     logger.info("Bot service started; checking settings every %ss", int(POLL_S))
     try:
         while True:
@@ -113,9 +119,14 @@ def main() -> None:
                 supervisor.tick(config.load_all())
             except Exception:  # noqa: BLE001 - a store hiccup must not end the service
                 logger.exception("Bot supervisor tick failed")
+            try:
+                scheduler.tick()
+            except Exception:  # noqa: BLE001 - same: keep the loop alive
+                logger.exception("Subscription scheduler tick failed")
             time.sleep(POLL_S)
     finally:
         supervisor.shutdown()
+        scheduler.shutdown()
 
 
 if __name__ == "__main__":
