@@ -366,6 +366,21 @@
             "description": "Optional authoritative evidence supplied separately from the question.",
             "title": "Evidence"
           },
+          "history": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/HistoryTurn"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Earlier turns, oldest first, for a caller that keeps its own thread (the chat bots). Used only without ``conversation_id``, and only to read a follow-up such as \"\u90a3\u534e\u4e1c\u5462\uff1f\" as a standalone question; the last 5 are kept.",
+            "title": "History"
+          },
           "prediction": {
             "anyOf": [
               {
@@ -2916,6 +2931,36 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HistoryTurn": {
+        "description": "One earlier exchange a stateless caller supplies as context.",
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "response": {
+            "default": "",
+            "title": "Response",
+            "type": "string"
+          },
+          "sql_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sql Code"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "HistoryTurn",
         "type": "object"
       },
       "IdRef": {

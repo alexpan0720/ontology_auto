@@ -16,8 +16,11 @@ import json
 import logging
 import os
 import re
+import threading
+import time
+from collections import deque
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Deque, Iterable
 
 import httpx
 
@@ -35,8 +38,82 @@ HELP_TEXT = (
     "你好，我是 alexpan 本体问数助手。直接用自然语言提问即可，例如：\n"
     "- 2026 年每个月已完成订单的销售额是多少？\n"
     "- 哪个品类的毛利率最高？\n"
+    "可以接着追问，例如“那华东呢？”“按月拆开看”；发送“新问题”可重新开始。\n"
     "群聊中请 @我 提问。查询会按你的账号权限执行。"
 )
+
+#: Earlier turns sent with a question, so a follow-up can be understood.
+MEMORY_TURNS = 3
+#: A thread idle this long starts over: an old topic is not a follow-up.
+MEMORY_TTL_S = 30 * 60
+#: Characters of an earlier answer kept as context.
+MEMORY_TEXT = 600
+RESET_WORDS = ("新问题", "重新开始", "清空上下文", "reset", "/reset", "/new")
+
+
+class ConversationMemory:
+    """The last few turns of each thread, in memory, for follow-up questions.
+
+    A thread is one person in one chat (see :func:`thread_key`), so in a group
+    each member follows up on their own questions. Kept per bot process: a
+    restart forgets, which only costs the next question its context.
+    """
+
+    def __init__(
+        self,
+        turns: int = MEMORY_TURNS,
+        ttl_s: float = MEMORY_TTL_S,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self.turns, self.ttl_s, self.clock = turns, ttl_s, clock
+        self._threads: dict[str, tuple[float, Deque[dict[str, Any]]]] = {}
+        self._lock = threading.Lock()
+
+    def history(self, key: str) -> list[dict[str, Any]]:
+        with self._lock:
+            entry = self._threads.get(key)
+            if entry is None:
+                return []
+            if self.clock() - entry[0] > self.ttl_s:
+                del self._threads[key]
+                return []
+            return list(entry[1])
+
+    def remember(self, key: str, question: str, event: dict[str, Any]) -> None:
+        """Keep an answered turn; a failed one is not useful context."""
+        if event.get("type") != "result":
+            return
+        answer = event.get("answer") or {}
+        turn = {
+            # The standalone reading, so the next follow-up builds on it.
+            "question": answer.get("resolved_question") or question,
+            "response": str(answer.get("response") or "")[:MEMORY_TEXT],
+            "sql_code": answer.get("sql_code") or None,
+        }
+        now = self.clock()
+        with self._lock:
+            self._prune(now)
+            _, turns = self._threads.get(key, (now, deque(maxlen=self.turns)))
+            turns.append(turn)
+            self._threads[key] = (now, turns)
+
+    def forget(self, key: str) -> None:
+        with self._lock:
+            self._threads.pop(key, None)
+
+    def _prune(self, now: float) -> None:
+        stale = [k for k, (at, _) in self._threads.items() if now - at > self.ttl_s]
+        for key in stale:
+            del self._threads[key]
+
+
+#: The bot process's memory.
+MEMORY = ConversationMemory()
+
+
+def thread_key(asker: "Asker", chat_id: str | None) -> str:
+    """One person in one chat (a private chat has the person alone)."""
+    return f"{asker.platform}:{chat_id or 'direct'}:{asker.identity}"
 
 
 @dataclass
@@ -130,7 +207,10 @@ def parse_sse(lines: Iterable[str]) -> dict[str, Any] | None:
 
 
 def ask(
-    question: str, asker: Asker, client: httpx.Client | None = None
+    question: str,
+    asker: Asker,
+    client: httpx.Client | None = None,
+    history: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Run *question* through the chat API as *asker*; returns the final event."""
     headers = {
@@ -144,7 +224,7 @@ def ask(
         with client.stream(
             "POST",
             f"{BACKEND_URL}/api/chat/completions",
-            json={"question": question},
+            json={"question": question, **({"history": history} if history else {})},
             headers=headers,
         ) as response:
             if response.status_code >= 400:
@@ -239,7 +319,10 @@ def format_answer(event: dict[str, Any]) -> tuple[str, str]:
         )
         return "查询失败", f"抱歉，这次没能完成查询：{message}{hint}"
     answer = event.get("answer") or {}
-    parts = [str(answer.get("response") or "").strip()[:MAX_TEXT]]
+    parts = []
+    if answer.get("resolved_question"):
+        parts.append(f"> 理解为：{answer['resolved_question']}")
+    parts.append(str(answer.get("response") or "").strip()[:MAX_TEXT])
     table = format_table(_rows(answer))
     if table:
         parts.append(table)
@@ -254,10 +337,21 @@ def format_answer(event: dict[str, Any]) -> tuple[str, str]:
     return "问数结果", "\n\n".join(p for p in parts if p)
 
 
-def answer_question(question: str, asker: Asker, *, asker_fn=ask) -> tuple[str, str]:
-    """The reply to one message: help for an empty one, else the formatted answer."""
+def answer_question(
+    question: str,
+    asker: Asker,
+    *,
+    chat_id: str | None = None,
+    asker_fn: Callable[..., dict[str, Any]] = ask,
+    memory: ConversationMemory = MEMORY,
+) -> tuple[str, str]:
+    """The reply to one message: help, a reset, or the answer in its thread."""
     if not question or question in ("帮助", "help", "?", "？"):
         return "使用说明", HELP_TEXT
+    key = thread_key(asker, chat_id)
+    if question.lower() in RESET_WORDS:
+        memory.forget(key)
+        return "已重新开始", "好的，之前的问题不再作为上下文，请直接提出新问题。"
     logger.info(
         "%s question from %s (%s): %s",
         asker.platform,
@@ -265,4 +359,6 @@ def answer_question(question: str, asker: Asker, *, asker_fn=ask) -> tuple[str, 
         asker.identity,
         question,
     )
-    return format_answer(asker_fn(question, asker))
+    event = asker_fn(question, asker, history=memory.history(key))
+    memory.remember(key, question, event)
+    return format_answer(event)

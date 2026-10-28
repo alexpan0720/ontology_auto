@@ -215,6 +215,9 @@ def _worker_loop(
                     if audit_log:
                         event["access_audit"] = summarize(audit_log)
                     answer = event.get("answer")
+                    if is_follow_up and isinstance(answer, dict):
+                        # How the follow-up was read, for the bots to show.
+                        answer["resolved_question"] = processing_question
                     provenance = (
                         answer.get("provenance") if isinstance(answer, dict) else None
                     )

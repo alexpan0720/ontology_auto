@@ -97,7 +97,9 @@ def build_handler(
             )
             if question:
                 self.reply_text("正在查询，请稍候…", message)
-            title, body = await asyncio.to_thread(answer, question, asker)
+            title, body = await asyncio.to_thread(
+                answer, question, asker, chat_id=message.conversation_id
+            )
             self.reply_markdown(title, body, message)
             return dingtalk_stream.AckMessage.STATUS_OK, "OK"
 

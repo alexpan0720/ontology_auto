@@ -29,6 +29,18 @@ __all__ = [
 ]
 
 
+class HistoryTurn(BaseModel):
+    """One earlier exchange a stateless caller supplies as context."""
+
+    question: str
+    response: str = ""
+    sql_code: str | None = None
+
+
+#: Earlier turns a stateless caller may send; the follow-up resolver needs few.
+MAX_HISTORY_TURNS = 5
+
+
 class ChatRequest(BaseModel):
     """Payload sent by the frontend to start a chat completion."""
 
@@ -48,6 +60,15 @@ class ChatRequest(BaseModel):
             "conversation; one owned by another user is rejected with 404. "
             "Omitting it runs the question statelessly, with no history and no "
             "chart step."
+        ),
+    )
+    history: list[HistoryTurn] | None = Field(
+        default=None,
+        description=(
+            "Earlier turns, oldest first, for a caller that keeps its own thread "
+            "(the chat bots). Used only without ``conversation_id``, and only to "
+            'read a follow-up such as "那华东呢？" as a standalone question; '
+            f"the last {MAX_HISTORY_TURNS} are kept."
         ),
     )
     # Control prediction routing while preserving information classification:

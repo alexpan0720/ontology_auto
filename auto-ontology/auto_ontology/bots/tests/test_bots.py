@@ -139,6 +139,7 @@ def _feishu_event(
         event=SimpleNamespace(
             message=SimpleNamespace(
                 message_id=message_id,
+                chat_id="oc_1",
                 chat_type=chat_type,
                 message_type="text",
                 mentions=mentions,
@@ -151,7 +152,9 @@ def _feishu_event(
 
 class FakeFeishuBot(feishu.Bot):
     def __init__(self) -> None:
-        super().__init__(client=None, answer=lambda q, asker: ("问数结果", f"答：{q}"))
+        super().__init__(
+            client=None, answer=lambda q, asker, chat_id=None: ("问数结果", f"答：{q}")
+        )
         self.replies: list[tuple[str, str, str]] = []
         self.handled: list[Any] = []
 
@@ -215,8 +218,10 @@ class TestDingTalk:
         directory = SimpleNamespace(email=lambda staff_id: "z@corp.com")
         asked: list[Any] = []
 
-        def answer(question: str, asker: core.Asker) -> tuple[str, str]:
-            asked.append((question, asker.identity))
+        def answer(
+            question: str, asker: core.Asker, chat_id: str | None = None
+        ) -> tuple[str, str]:
+            asked.append((question, asker.identity, chat_id))
             return "问数结果", "答案"
 
         handler = dingtalk.build_handler(directory, answer)
@@ -233,11 +238,12 @@ class TestDingTalk:
                 "senderNick": "张三",
                 "conversationType": "1",
                 "sessionWebhook": "https://example.invalid/hook",
+                "conversationId": "cid-1",
             }
         )
         code, _ = asyncio.run(handler.process(callback))
         assert code == dingtalk_stream.AckMessage.STATUS_OK
-        assert asked == [("哪个品类毛利最高？", "u1")]
+        assert asked == [("哪个品类毛利最高？", "u1", "cid-1")]
         assert sent == [("text", "正在查询，请稍候…"), ("markdown", "问数结果", "答案")]
 
 
@@ -315,3 +321,99 @@ def test_the_process_target_is_importable_by_a_spawned_child() -> None:
 
     assert serve.__module__ == "auto_ontology.bots.serve"
     assert service.serve is serve
+
+
+def _result(response: str, sql: str = "SELECT 1", resolved: str | None = None) -> dict:
+    answer: dict[str, Any] = {"response": response, "sql_code": sql}
+    if resolved:
+        answer["resolved_question"] = resolved
+    return {"type": "result", "answer": answer}
+
+
+class TestFollowUps:
+    def test_history_is_sent_and_built_up_per_thread(self) -> None:
+        memory = core.ConversationMemory()
+        sent: list[tuple[str, list]] = []
+        replies = iter(
+            [
+                _result("各品类销售额如下", "SELECT category, SUM(x)"),
+                _result("华东各品类销售额如下", resolved="华东各品类的销售额"),
+            ]
+        )
+
+        def asker_fn(question: str, asker: core.Asker, history: list) -> dict:
+            sent.append((question, history))
+            return next(replies)
+
+        alice = core.Asker("feishu", "ou_a", "u1", "Alice")
+        core.answer_question(
+            "各品类销售额", alice, chat_id="g1", asker_fn=asker_fn, memory=memory
+        )
+        title, body = core.answer_question(
+            "那华东呢？", alice, chat_id="g1", asker_fn=asker_fn, memory=memory
+        )
+        assert sent[0][1] == []
+        assert sent[1][1] == [
+            {
+                "question": "各品类销售额",
+                "response": "各品类销售额如下",
+                "sql_code": "SELECT category, SUM(x)",
+            }
+        ]
+        assert body.startswith("> 理解为：华东各品类的销售额")
+        # The next follow-up builds on the standalone reading.
+        assert memory.history(core.thread_key(alice, "g1"))[-1]["question"] == (
+            "华东各品类的销售额"
+        )
+
+    def test_threads_are_per_person_and_per_chat(self) -> None:
+        memory = core.ConversationMemory()
+        alice = core.Asker("feishu", "ou_a", "u1", "")
+        bob = core.Asker("feishu", "ou_b", None, "")
+        memory.remember(core.thread_key(alice, "g1"), "q", _result("a"))
+        assert memory.history(core.thread_key(bob, "g1")) == []
+        assert memory.history(core.thread_key(alice, "g2")) == []
+        assert len(memory.history(core.thread_key(alice, "g1"))) == 1
+
+    def test_failures_are_not_remembered_and_old_turns_drop_off(self) -> None:
+        memory = core.ConversationMemory(turns=2)
+        memory.remember("k", "bad", {"type": "error", "message": "x"})
+        assert memory.history("k") == []
+        for q in ("q1", "q2", "q3"):
+            memory.remember("k", q, _result(q))
+        assert [t["question"] for t in memory.history("k")] == ["q2", "q3"]
+
+    def test_an_idle_thread_starts_over(self) -> None:
+        now = [0.0]
+        memory = core.ConversationMemory(ttl_s=60, clock=lambda: now[0])
+        memory.remember("k", "q", _result("a"))
+        now[0] = 61
+        assert memory.history("k") == []
+
+    def test_reset_word_clears_the_thread(self) -> None:
+        memory = core.ConversationMemory()
+        asker = core.Asker("dingtalk", "s1", "u1", "")
+        memory.remember(core.thread_key(asker, "c"), "q", _result("a"))
+        title, _ = core.answer_question(
+            "新问题",
+            asker,
+            chat_id="c",
+            asker_fn=lambda *a, **k: pytest.fail("asked"),
+            memory=memory,
+        )
+        assert title == "已重新开始"
+        assert memory.history(core.thread_key(asker, "c")) == []
+
+    def test_ask_sends_history_only_when_there_is_some(self) -> None:
+        bodies: list[dict] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            bodies.append(json.loads(request.content))
+            return httpx.Response(200, text=f"data: {json.dumps(RESULT)}\n\n")
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        asker = core.Asker("feishu", "ou", "u1", "")
+        core.ask("q", asker, client)
+        core.ask("q2", asker, client, history=[{"question": "q", "response": "a"}])
+        assert "history" not in bodies[0]
+        assert bodies[1]["history"] == [{"question": "q", "response": "a"}]

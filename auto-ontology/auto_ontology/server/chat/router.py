@@ -88,6 +88,7 @@ from auto_ontology.dal import datasources as datasources_dal
 from auto_ontology.dal.terms import semantic_layer_calculated
 from auto_ontology.retrieval.text_to_sql.visualization import analyze_and_visualize
 from auto_ontology.server.chat.helpers import (
+    MAX_HISTORY_TURNS,
     NODE_LABELS,
     ChatRequest,
     build_result_message,
@@ -713,7 +714,12 @@ async def chat_completions(
             }
             for turn in prepared.history
         ]
-    elif user_id is not None:
+    else:
+        # A stateless caller (a bot) may keep its own thread and send it.
+        conversation_history = [
+            turn.model_dump() for turn in (request.history or [])[-MAX_HISTORY_TURNS:]
+        ]
+    if request.conversation_id is None and user_id is not None:
         try:
             slot.analytics_id = await asyncio.to_thread(
                 create_stateless_analytics,

@@ -159,7 +159,7 @@ class Bot:
                     "text",
                     json.dumps({"text": "正在查询，请稍候…"}, ensure_ascii=False),
                 )
-            title, body = self.answer(question, asker)
+            title, body = self.answer(question, asker, chat_id=message.chat_id)
             self.reply(message.message_id, "interactive", card(title, body))
         except Exception:  # noqa: BLE001 - one failed reply must not stop the bot
             logger.exception("Feishu question failed")
