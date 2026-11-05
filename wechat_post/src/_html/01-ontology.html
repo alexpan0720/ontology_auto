@@ -1,0 +1,41 @@
+<!doctype html><html><head><meta charset='utf-8'><style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:900px;overflow:hidden;font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#0f172a;background:#fff}
+.wrap{width:900px;padding:36px 40px}
+.h{font-size:26px;font-weight:700;letter-spacing:1px}
+.sub{font-size:15px;color:#64748b;margin-top:6px}
+.blue{color:#2563eb}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 4px 14px rgba(15,23,42,.06)}
+.tag{display:inline-block;font-size:13px;padding:3px 10px;border-radius:999px;background:#eff6ff;color:#1d4ed8;margin:3px 4px 0 0}
+.mono{font-family:Consolas,"Cascadia Mono",monospace}
+</style></head><body>
+<div class="wrap" style="background:#f8fafc;height:420px">
+ <div class="h">从“表和字段”到“业务语言”</div>
+ <div class="sub">本体（语义层）把数据库里的技术细节，翻译成人和 AI 都能理解的业务概念</div>
+ <div style="display:flex;align-items:center;gap:14px;margin-top:26px">
+  <div class="card" style="width:240px;padding:16px">
+   <div style="font-weight:700;font-size:15px;margin-bottom:10px">🗄️ 原始数据库</div>
+   <div class="mono" style="font-size:13px;line-height:1.9;color:#475569">
+    ods_ord_dtl<br>&nbsp; pay_amt, st_cd, rgn_id<br>dim_rgn<br>&nbsp; rgn_id, rgn_nm<br>t_usr_info<br>&nbsp; uid, reg_dt, mob_no
+   </div>
+  </div>
+  <div style="font-size:30px;color:#94a3b8">➜</div>
+  <div class="card" style="width:300px;padding:16px;border:2px solid #2563eb">
+   <div style="font-weight:700;font-size:15px;margin-bottom:10px" class="blue">🧠 本体 / 语义层</div>
+   <div style="font-size:13.5px;line-height:1.75">
+    <b>实体</b>：订单、用户、大区<br>
+    <b>关系</b>：订单 → 大区（语义外键）<br>
+    <b>术语</b>：销售额 = Σ 支付金额<br>
+    <span style="color:#64748b">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;（仅已支付订单）</span><br>
+    <b>敏感字段</b>：手机号 · 自动识别 PII
+   </div>
+  </div>
+  <div style="font-size:30px;color:#94a3b8">➜</div>
+  <div style="width:170px">
+   <div class="card" style="padding:12px;margin-bottom:12px;text-align:center;font-size:14px">🙋 业务人员<br><span style="color:#64748b;font-size:12px">自然语言提问</span></div>
+   <div class="card" style="padding:12px;text-align:center;font-size:14px">🤖 AI Agent<br><span style="color:#64748b;font-size:12px">MCP / API 调用</span></div>
+  </div>
+ </div>
+ <div style="margin-top:26px;font-size:13px;color:#64748b;text-align:center">采集元数据 → 抽取主外键、语义外键与业务术语 → 生成向量，存入 Postgres（pgvector）</div>
+</div>
+</body></html>
