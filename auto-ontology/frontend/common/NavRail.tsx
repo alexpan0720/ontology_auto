@@ -4,76 +4,114 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon, IconName } from '@/common/icons';
+import { isNavItemActive, visibleNavSections } from '@/lib/navigation';
 
-type NavItem = {
-	icon: IconName;
-	href: string;
-	label: string;
-	adminOnly?: boolean;
+/** Where the collapsed/expanded choice is remembered, per browser. */
+export const SIDEBAR_COLLAPSED_KEY = 'ao.sidebar.collapsed';
+
+const readCollapsed = (): boolean => {
+	try {
+		return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+	} catch {
+		return false;
+	}
 };
 
-const navItems: NavItem[] = [
-	{ icon: IconName.ChatBubble, href: '/chat', label: '对话' },
-	{ icon: IconName.Discovery, href: '/discovery', label: '发现' },
-	{ icon: IconName.Terms, href: '/terms', label: '术语' },
-	{ icon: IconName.ChartBar, href: '/analysis', label: '分析' },
-	{ icon: IconName.Exploration, href: '/exploration', label: '探索' },
-	{ icon: IconName.Database, href: '/data', label: '数据' },
-	{ icon: IconName.ChartLine, href: '/analytics', label: '使用统计', adminOnly: true },
-	// Settings is admin-only and now also contains Users and Single Sign-On
-	// (see app/settings/*). Viewers don't see it.
-	{ icon: IconName.Settings, href: '/settings', label: '设置', adminOnly: true },
-];
+const writeCollapsed = (collapsed: boolean): void => {
+	try {
+		window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
+	} catch {
+		// Storage can be unavailable (private windows); the choice just isn't kept.
+	}
+};
 
+/**
+ * The app's sidebar: labelled, grouped by task, and collapsible to icons.
+ *
+ * Labels are always shown when expanded — the previous icon-only rail made
+ * people hover to learn where they were going. Collapsing is remembered per
+ * browser for those who know the icons.
+ */
 export const NavRail = ({ isAdmin = false }: { isAdmin?: boolean }) => {
-	const pathname = usePathname();
-	const [isExpanded, setIsExpanded] = useState(false);
-	const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin);
+	const pathname = usePathname() ?? '';
+	const [collapsed, setCollapsed] = useState(false);
+
+	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- storage is only readable after hydration
+		setCollapsed(readCollapsed());
+	}, []);
+
+	const toggle = () => {
+		setCollapsed((current) => {
+			writeCollapsed(!current);
+			return !current;
+		});
+	};
 
 	return (
-		<nav className="relative h-full w-12 shrink-0 border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-			<div
-				onMouseEnter={() => setIsExpanded(true)}
-				onMouseLeave={() => setIsExpanded(false)}
-				className={`absolute inset-y-0 left-0 flex flex-col overflow-hidden bg-white py-3 transition-[width] duration-200 ease-out dark:bg-zinc-950 ${
-					isExpanded
-						? 'z-30 w-56 border-r border-zinc-200 shadow-lg dark:border-zinc-800'
-						: 'w-full'
-				}`}
-			>
-				<div
-					className={`flex flex-1 flex-col gap-2 ${isExpanded ? 'px-1.5' : 'items-center'}`}
+		<nav
+			aria-label="主导航"
+			className={`flex h-full shrink-0 flex-col border-r border-zinc-200 bg-white py-3 transition-[width] duration-200 dark:border-zinc-800 dark:bg-zinc-950 ${
+				collapsed ? 'w-14' : 'w-52'
+			}`}
+		>
+			<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2">
+				{visibleNavSections(isAdmin).map((section) => (
+					<div key={section.key} role="group" aria-label={section.title ?? '常用'}>
+						{section.title &&
+							(collapsed ? (
+								<div className="mx-2 mb-2 border-t border-zinc-200 dark:border-zinc-800" />
+							) : (
+								<p className="mb-1 px-2 text-[11px] font-medium tracking-wide text-secondary dark:text-zinc-500">
+									{section.title}
+								</p>
+							))}
+						<ul className="flex flex-col gap-0.5">
+							{section.items.map((item) => {
+								const active = isNavItemActive(pathname, item);
+								return (
+									<li key={item.key}>
+										<Link
+											href={item.href}
+											title={collapsed ? item.label : undefined}
+											aria-current={active ? 'page' : undefined}
+											className={`flex h-9 items-center gap-3 rounded-lg text-sm transition-colors ${
+												collapsed ? 'justify-center' : 'px-2.5'
+											} ${
+												active
+													? 'bg-[#2563eb]/10 font-medium text-[#1d4ed8] dark:bg-[#2563eb]/20 dark:text-[#93c5fd]'
+													: 'text-body hover:bg-zinc-100 hover:text-heading dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100'
+											}`}
+										>
+											<Icon name={item.icon} className="h-5 w-5 shrink-0" />
+											{!collapsed && (
+												<span className="truncate">{item.label}</span>
+											)}
+										</Link>
+									</li>
+								);
+							})}
+						</ul>
+					</div>
+				))}
+			</div>
+			<div className="px-2 pt-2">
+				<button
+					type="button"
+					onClick={toggle}
+					aria-label={collapsed ? '展开侧边栏' : '收起侧边栏'}
+					title={collapsed ? '展开侧边栏' : '收起侧边栏'}
+					className={`flex h-9 w-full items-center gap-3 rounded-lg text-xs text-secondary hover:bg-zinc-100 hover:text-heading dark:hover:bg-zinc-800 dark:hover:text-zinc-100 ${
+						collapsed ? 'justify-center' : 'px-2.5'
+					}`}
 				>
-					{visibleItems.map((item) => {
-						const isActive = pathname.startsWith(item.href);
-
-						return (
-							<Link
-								key={item.href}
-								href={item.href}
-								title={isExpanded ? undefined : item.label}
-								className={`flex h-9 shrink-0 items-center gap-3 rounded-lg transition-colors ${
-									isExpanded ? 'w-full px-2' : 'w-9 justify-center'
-								} ${
-									isActive
-										? 'bg-[#2563eb]/15 text-[#2563eb]'
-										: 'text-body hover:bg-zinc-100 hover:text-heading dark:hover:bg-zinc-800 dark:hover:text-zinc-200'
-								}`}
-							>
-								<Icon name={item.icon} className="h-5 w-5 shrink-0" />
-								{isExpanded && (
-									<span className="truncate text-sm font-medium whitespace-nowrap">
-										{item.label}
-									</span>
-								)}
-							</Link>
-						);
-					})}
-				</div>
+					<Icon name={IconName.Sidebar} className="h-5 w-5 shrink-0" />
+					{!collapsed && <span>收起</span>}
+				</button>
 			</div>
 		</nav>
 	);

@@ -102,7 +102,7 @@ export default async function RootLayout({
 
 	return (
 		<html
-			lang="en"
+			lang="zh-CN"
 			className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
 		>
 			<body className="flex h-full flex-col bg-white text-heading dark:bg-zinc-950 dark:text-zinc-100">

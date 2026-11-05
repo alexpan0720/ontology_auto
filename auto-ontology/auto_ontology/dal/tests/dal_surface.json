@@ -130,6 +130,7 @@
     "record_audit": "(*, user_id: 'str | None', conversation_id: 'str | None', question: 'str | None', sql: 'str | None', decision: 'str', reason: 'str | None', policy_ids: 'list[str]', statements: 'list[dict[str, Any]]') -> 'None'",
     "resolve_access": "(user_id: 'str | None') -> 'AccessContext'",
     "restrict_pii_columns": "(created_by: 'str | None' = None) -> 'tuple[int, int]'",
+    "suggested_questions": "(limit: 'int') -> 'list[dict[str, Any]]'",
     "update_policy": "(policy_id: 'str', changes: 'dict[str, Any]') -> 'bool'",
     "update_verified": "(query_id: 'str', changes: 'dict[str, Any]', reviewer: 'str | None') -> 'bool'",
     "user_groups": "(user_id: 'str') -> 'list[dict[str, Any]]'"
@@ -164,6 +165,30 @@
     "make_cached_sql_column_resolver": "() -> 'Callable[[str, str | None], list[str]]'",
     "resolve_sql_column_ids": "(sql: 'str', database_name: 'str | None') -> 'list[str]'",
     "validate_database_ids": "(database_ids: 'list[str]') -> 'None'"
+  },
+  "objects": {
+    "ObjectTypeConflict": "class(Exception)",
+    "counts": "() -> 'dict[str, int]'",
+    "create_link_types": "(specs: 'list[dict[str, Any]]', *, created_by: 'str | None') -> 'list[str]'",
+    "create_object_type": "(spec: 'dict[str, Any]', *, created_by: 'str | None') -> 'str'",
+    "create_object_types": "(specs: 'list[dict[str, Any]]', *, created_by: 'str | None') -> 'list[str]'",
+    "delete_link_type": "(link_id: 'str') -> 'bool'",
+    "delete_object_types": "(type_ids: 'list[str]') -> 'int'",
+    "fetch_catalog_tables": "(table_ids: 'list[str] | None' = None) -> 'list[dict[str, Any]]'",
+    "fetch_key_pairs": "() -> 'list[dict[str, Any]]'",
+    "fetch_object_context": "(table_ids: 'list[str]') -> 'dict[str, dict[str, Any]]'",
+    "fetch_property_overrides": "(type_id: 'str') -> 'dict[str, dict[str, Any]]'",
+    "get_link_type": "(link_id: 'str') -> 'dict[str, Any] | None'",
+    "get_object_type": "(type_id: 'str') -> 'dict[str, Any] | None'",
+    "get_object_types": "(type_ids: 'list[str]') -> 'dict[str, dict[str, Any]]'",
+    "link_keys": "() -> 'set[tuple[str, str, str]]'",
+    "list_link_types": "(*, type_id: 'str | None' = None, status: 'str | None' = None) -> 'list[dict[str, Any]]'",
+    "list_object_types": "(status: 'str | None' = None) -> 'list[dict[str, Any]]'",
+    "object_type_table_ids": "() -> 'set[str]'",
+    "set_link_status": "(link_ids: 'list[str]', status: 'str', *, modified_by: 'str | None') -> 'int'",
+    "set_status": "(type_ids: 'list[str]', status: 'str', *, modified_by: 'str | None') -> 'int'",
+    "update_link_type": "(link_id: 'str', values: 'dict[str, Any]', *, modified_by: 'str | None') -> 'bool'",
+    "update_object_type": "(type_id: 'str', values: 'dict[str, Any]', *, properties: 'list[dict[str, Any]] | None', modified_by: 'str | None') -> 'bool'"
   },
   "owners": {
     "EditSubject": "class(object)",

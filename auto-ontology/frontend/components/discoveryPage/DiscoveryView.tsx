@@ -23,7 +23,8 @@ import {
 	isSearchObjectType,
 	totalGlobalSearchCount,
 } from '@/common/GlobalSearchTabs';
-import { Icon, IconName } from '@/common/icons';
+import { IconName } from '@/common/icons';
+import { PageHeader } from '@/common/PageHeader';
 import { RuleTagPopover } from '@/common/RuleTagPopover';
 import { SearchInput } from '@/common/SearchInput';
 import { DEFAULT_DISCOVERY_FILTERS } from '@/constants/discovery';
@@ -374,15 +375,14 @@ export const DiscoveryView = ({ initialQuery = '', handoverId = '' }: DiscoveryV
 
 	return (
 		<div className="flex h-full w-full flex-col bg-white dark:bg-zinc-950">
-			<header className="flex shrink-0 items-center gap-3 border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-				<Icon name={IconName.Discovery} className="h-5 w-5 text-body dark:text-zinc-300" />
-				<h1 className="text-lg font-semibold tracking-tight text-heading dark:text-zinc-100">
-					发现
-				</h1>
-			</header>
+			<PageHeader
+				title="搜索"
+				description="在数据库、表、字段、术语和已保存查询中查找，可按类型和标签筛选。"
+				icon={IconName.Discovery}
+			/>
 			<div className="flex min-h-0 flex-1">
 				<BackPanelLayout
-					panelAriaLabel="发现页筛选"
+					panelAriaLabel="搜索筛选"
 					expandAriaLabel="展开筛选"
 					collapseAriaLabel="收起筛选"
 					panel={

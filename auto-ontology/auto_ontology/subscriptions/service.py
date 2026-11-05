@@ -21,6 +21,7 @@ from decimal import Decimal
 from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
+import pandas as pd
 import sqlglot
 from sqlglot import exp
 
@@ -46,7 +47,9 @@ class QueryResult:
 
 
 def _json_value(value: Any) -> Any:
-    if value is None:
+    # A null in a date column reads back from pandas as NaT, which is neither
+    # None nor a datetime and would otherwise be stringified as "NaT".
+    if value is None or value is pd.NaT:
         return None
     if hasattr(value, "item") and not isinstance(value, (str, bytes)):
         value = value.item()  # numpy scalars
@@ -91,9 +94,20 @@ def _connector(database_name: str | None) -> Any:
 
 
 def run_query(
-    sql: str, database_name: str | None, user_id: str | None, label: str
+    sql: str,
+    database_name: str | None,
+    user_id: str | None,
+    label: str,
+    *,
+    connector: Any | None = None,
+    access: Any | None = None,
 ) -> QueryResult:
-    """*sql* as *user_id* would see it; audited like a chat question."""
+    """*sql* as *user_id* would see it; audited like a chat question.
+
+    *connector* and *access* (an ``AccessContext``) save a caller that runs
+    several statements for one request from resolving them each time — and let
+    it bring a connector authenticated as the caller rather than the shared one.
+    """
     from auto_ontology.dal.governance import record_audit, resolve_access
     from auto_ontology.governance.enforce import (
         AccessDeniedError,
@@ -101,10 +115,12 @@ def run_query(
         summarize,
     )
 
-    connector = _connector(database_name)
+    connector = connector or _connector(database_name)
     check_read_only(sql, connector.dialect)
     log: list[dict[str, Any]] = []
-    wrapped = PolicyEnforcingConnector(connector, resolve_access(user_id), log)
+    wrapped = PolicyEnforcingConnector(
+        connector, access if access is not None else resolve_access(user_id), log
+    )
     try:
         frame = wrapped.execute(sql)
     except AccessDeniedError as exc:

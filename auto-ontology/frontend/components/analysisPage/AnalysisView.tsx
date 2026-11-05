@@ -12,6 +12,7 @@ import { EmptyState } from '@/common/EmptyState';
 import { Size, ButtonTheme, SelectButtonTheme } from '@/enums/button';
 import { EmptyStateVariant } from '@/enums/emptyState';
 import { Icon, IconName } from '@/common/icons';
+import { PageHeader } from '@/common/PageHeader';
 import { InfiniteScroll } from '@/common/InfiniteScroll';
 import { PopoverMenu } from '@/common/PopoverMenu';
 import { SearchInput } from '@/common/SearchInput';
@@ -43,6 +44,12 @@ const FIELD_INPUT_CLASSNAME =
 const FIELD_LABEL_CLASSNAME = 'mb-1.5 block text-sm font-medium text-heading dark:text-zinc-100';
 
 const MODE_LABEL: Record<AnalysisMode, string> = { sql: 'SQL', pql: 'PQL' };
+/** What each kind is called on the page. */
+const MODE_NAME: Record<AnalysisMode, string> = { sql: 'SQL 查询', pql: '预测查询' };
+const MODE_DESCRIPTION: Record<AnalysisMode, string> = {
+	sql: '团队沉淀的 SQL 查询。问数时会作为参考示例，提高相似问题的回答质量。',
+	pql: '用于预测类问题的 KumoRFM 查询，例如“哪些客户下个月可能流失”。',
+};
 const SKELETON_CARD_HEIGHT = 184;
 const SKELETON_CARD_GAP = 16;
 const LOADING_AREA_RESERVED_HEIGHT = 112;
@@ -229,7 +236,7 @@ export const AnalysisView = () => {
 			: await analyses.delete(deletingItem.id);
 		setDeleting(false);
 		if (res.error) {
-			setDeleteError(res.message ?? `删除 ${MODE_LABEL[mode]} 分析失败`);
+			setDeleteError(res.message ?? `删除${MODE_NAME[mode]}失败`);
 			return;
 		}
 		// Not a client-side filter: the next page is read from the count of
@@ -323,8 +330,8 @@ export const AnalysisView = () => {
 			setSubmitError(
 				failure ??
 					(editingId !== null
-						? `更新 ${MODE_LABEL[mode]} 分析失败`
-						: `创建 ${MODE_LABEL[mode]} 分析失败`),
+						? `更新${MODE_NAME[mode]}失败`
+						: `创建${MODE_NAME[mode]}失败`),
 			);
 			return;
 		}
@@ -345,28 +352,11 @@ export const AnalysisView = () => {
 
 	return (
 		<div className="flex h-full w-full flex-col bg-white dark:bg-zinc-950">
-			<header className="flex items-center gap-3 border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-				<Icon name={IconName.ChartBar} className="h-5 w-5 text-body dark:text-zinc-300" />
-				<h1 className="text-lg font-semibold tracking-tight text-heading dark:text-zinc-100">
-					{isPql ? 'PQL Analyses' : '自定义分析'}
-				</h1>
-				<div className="ml-4 flex items-center gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
-					<SelectButton
-						theme={SelectButtonTheme.Switcher}
-						selected={mode === 'sql'}
-						onClick={() => setMode('sql')}
-					>
-						SQL
-					</SelectButton>
-					<SelectButton
-						theme={SelectButtonTheme.Switcher}
-						selected={mode === 'pql'}
-						onClick={() => setMode('pql')}
-					>
-						PQL
-					</SelectButton>
-				</div>
-				<div className="ml-auto">
+			<PageHeader
+				title="已保存查询"
+				description={MODE_DESCRIPTION[mode]}
+				icon={IconName.ChartBar}
+				actions={
 					<Button
 						theme={ButtonTheme.Primary}
 						size={Size.REGULAR}
@@ -375,10 +365,31 @@ export const AnalysisView = () => {
 						shadow
 					>
 						<Icon name={IconName.Plus} className="h-4 w-4" />
-						Create New {MODE_LABEL[mode]} Analysis
+						新建{MODE_NAME[mode]}
 					</Button>
+				}
+			>
+				<div
+					role="tablist"
+					aria-label="查询类型"
+					className="inline-flex items-center gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800"
+				>
+					<SelectButton
+						theme={SelectButtonTheme.Switcher}
+						selected={mode === 'sql'}
+						onClick={() => setMode('sql')}
+					>
+						{MODE_NAME.sql}
+					</SelectButton>
+					<SelectButton
+						theme={SelectButtonTheme.Switcher}
+						selected={mode === 'pql'}
+						onClick={() => setMode('pql')}
+					>
+						{MODE_NAME.pql}
+					</SelectButton>
 				</div>
-			</header>
+			</PageHeader>
 
 			<InfiniteScroll
 				className="flex-1 px-6 py-6"
@@ -391,8 +402,8 @@ export const AnalysisView = () => {
 					<SearchInput
 						value={searchQuery}
 						onChange={setSearchQuery}
-						placeholder={`Search ${MODE_LABEL[mode]} Analyses…`}
-						aria-label={`Search ${MODE_LABEL[mode]} analyses`}
+						placeholder={`搜索${MODE_NAME[mode]}…`}
+						aria-label={`搜索${MODE_NAME[mode]}`}
 						className="mb-6 w-full"
 					/>
 				)}
@@ -438,8 +449,8 @@ export const AnalysisView = () => {
 						variant={EmptyStateVariant.Borderless}
 						title={
 							debouncedSearchQuery
-								? `No ${MODE_LABEL[mode]} Analyses Match Your Search`
-								: `No ${MODE_LABEL[mode]} Analyses Created Yet`
+								? `没有匹配的${MODE_NAME[mode]}`
+								: `还没有${MODE_NAME[mode]}，点击右上角新建`
 						}
 					/>
 				)}
@@ -537,11 +548,7 @@ export const AnalysisView = () => {
 			<ModalCreateNewItem
 				open={modalOpen}
 				onClose={handleClose}
-				title={
-					isEditing
-						? `Edit ${MODE_LABEL[mode]} Analysis`
-						: `Create New ${MODE_LABEL[mode]} Analysis`
-				}
+				title={isEditing ? `编辑${MODE_NAME[mode]}` : `新建${MODE_NAME[mode]}`}
 				submitLabel={submitting ? '保存中…' : '保存'}
 				onSubmit={handleSubmit}
 				canSubmit={canSubmit}
@@ -561,7 +568,7 @@ export const AnalysisView = () => {
 						type="text"
 						value={name}
 						onChange={(e) => setName(e.target.value)}
-						placeholder={`${MODE_LABEL[mode]} Analysis Name`}
+						placeholder={`${MODE_NAME[mode]}名称`}
 						className={FIELD_INPUT_CLASSNAME}
 					/>
 				</div>
@@ -603,10 +610,10 @@ export const AnalysisView = () => {
 				open={deletingItem !== null}
 				onCancel={handleDeleteClose}
 				onConfirm={handleDeleteConfirm}
-				title={`删除 ${MODE_LABEL[mode]} 分析`}
+				title={`删除${MODE_NAME[mode]}`}
 				message={
 					<>
-						确定要删除 <strong>{deletingItem?.name}</strong> 吗？此 操作无法撤销。
+						确定要删除 <strong>{deletingItem?.name}</strong> 吗？此操作无法撤销。
 					</>
 				}
 				confirming={deleting}

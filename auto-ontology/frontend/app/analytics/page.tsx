@@ -2,11 +2,9 @@
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { requireAdmin } from '@/auth/auth-guards';
-import { AnalyticsView } from '@/components/analyticsPage';
+import { redirect } from 'next/navigation';
 
-// Analytics is admin-only; non-admins are redirected to /chat.
-export default async function AnalyticsPage() {
-	await requireAdmin();
-	return <AnalyticsView />;
+// Usage moved into the admin centre; old links and bookmarks still land there.
+export default function AnalyticsPage() {
+	redirect('/settings/usage');
 }

@@ -6,7 +6,7 @@ import type { Metadata } from 'next';
 import { requireUser } from '@/auth/auth-guards';
 
 export const metadata: Metadata = {
-	title: '数据',
+	title: '数据目录',
 };
 
 export default async function DataLayout({ children }: { children: React.ReactNode }) {

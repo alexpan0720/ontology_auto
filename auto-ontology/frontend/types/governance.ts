@@ -92,3 +92,6 @@ export type VerifiedQuery = {
 	reviewed: string | null;
 	has_embedding: boolean;
 };
+
+/** A certified question offered as a starting point; mirrors `GET /verified-queries/suggestions`. */
+export type SuggestedQuestion = { id: string; question: string };

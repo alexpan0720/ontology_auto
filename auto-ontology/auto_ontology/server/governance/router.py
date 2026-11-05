@@ -242,6 +242,13 @@ def list_verified_queries(
     return {"data": rows, "count": len(rows)}
 
 
+@router.get("/verified-queries/suggestions")
+def suggested_questions(limit: int = 6) -> dict[str, Any]:
+    """Certified questions to suggest to anyone who may ask, without their SQL."""
+    rows = dal.suggested_questions(max(1, min(limit, 20)))
+    return {"data": rows, "count": len(rows)}
+
+
 @router.post("/verified-queries", status_code=201)
 def create_verified_query(body: VerifiedCreate, request: Request) -> dict[str, str]:
     """Add an entry as a reviewer, optionally certifying it at once."""

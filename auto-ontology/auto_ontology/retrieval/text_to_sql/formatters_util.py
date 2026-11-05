@@ -342,6 +342,66 @@ def _column_row(column: Any) -> dict[str, str]:
     }
 
 
+def _format_business_object(
+    table: dict,
+    tables: list[dict],
+    target_db: str | None,
+    dialect: str | None,
+) -> str:
+    """The business object *table* backs and its links, as prompt lines.
+
+    Set by :func:`auto_ontology.objects.context.annotate_business_objects`.
+    A link is shown only when the table at its other end is in *tables* too:
+    naming a table the model was not given would invite SQL against it.
+    """
+    business = table.get("business_object")
+    if not isinstance(business, dict) or not business.get("name"):
+        return ""
+    database = table.get("database_name") or target_db or ""
+    own = qualify_table(
+        database, table.get("schema_name") or "", table.get("name") or "", dialect
+    )
+    line = f"Business object: {business['name']}"
+    if business.get("description"):
+        line += f" — {_plain_cell(business['description'])}"
+    lines = [line]
+    columns_by_id = {
+        str(t.get("id")): {
+            str(c.get("name") or "").casefold()
+            for c in t.get("columns") or []
+            if isinstance(c, dict)
+        }
+        for t in tables
+        if t.get("id")
+    }
+    own_columns = columns_by_id.get(str(table.get("id")), set())
+    for link in business.get("links") or []:
+        other_columns = columns_by_id.get(str(link.get("other_table_id")))
+        if other_columns is None:
+            continue
+        # A column withheld from the caller is gone from the table's list, and
+        # a link through it would hand the model the name back.
+        if (own_columns and link["column"].casefold() not in own_columns) or (
+            other_columns and link["other_column"].casefold() not in other_columns
+        ):
+            continue
+        other = qualify_table(
+            database, link.get("other_schema") or "", link["other_table"], dialect
+        )
+        many = (
+            f"many per {business['name']}"
+            if link["direction"] == "in"
+            else f"one per {business['name']}"
+        )
+        lines.append(
+            f'- link "{link["name"]}" ({link["other_object"]}, {many}): '
+            f"{own}.{link['column']} = {other}.{link['other_column']}"
+        )
+    if len(lines) > 1:
+        lines.insert(1, "Business object links:")
+    return "\n".join(lines)
+
+
 def format_tables_for_prompt(
     tables: list[dict],
     target_db: str | None = None,
@@ -395,6 +455,7 @@ def format_tables_for_prompt(
             blocks.append(_pipe_table(_COLUMN_HEADERS, column_rows))
             if any("json" in row["type"].lower() for row in column_rows):
                 blocks.append(_JSONB_SAMPLE_NOTE)
+        blocks.append(_format_business_object(table, tables, target_db, dialect))
 
         formatted_tables.append("\n".join(block for block in blocks if block))
 
@@ -448,6 +509,9 @@ def format_used_schema_for_prompt(
             line += f" | description: {table['description']}"
         if table.get("pk"):
             line += f" | primary key: {table['pk']}"
+        business = table.get("business_object")
+        if isinstance(business, dict) and business.get("name"):
+            line += f" | business object: {business['name']}"
         table_lines.append(line)
 
     column_lines: list[str] = []

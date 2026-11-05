@@ -239,6 +239,13 @@ def test_read_only_sql() -> None:
             service.check_read_only(sql, "postgres")
 
 
+def test_null_dates_read_back_as_null() -> None:
+    import pandas as pd
+
+    assert service._json_value(pd.NaT) is None
+    assert service._json_value(pd.Timestamp("2026-10-01")) == "2026-10-01T00:00:00"
+
+
 SUB = {
     "id": "sub1",
     "name": "各渠道订单",

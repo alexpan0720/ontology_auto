@@ -6,7 +6,7 @@ import type { Metadata } from 'next';
 import { requireUser } from '@/auth/auth-guards';
 
 export const metadata: Metadata = {
-	title: '对话',
+	title: '问数',
 };
 
 export default async function ChatLayout({ children }: { children: React.ReactNode }) {

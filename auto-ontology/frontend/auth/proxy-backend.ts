@@ -13,6 +13,7 @@
 // authorization boundary, so the backend's own `zone_ids` default (unscoped)
 // is what every proxied call gets.
 
+import { resolveSubjectToken } from '@/auth/sso-token';
 import { buildInternalIdentityHeaders } from '@/lib/internalIdentity';
 
 const PYTHON_API_URL = process.env.PYTHON_API_URL ?? 'http://127.0.0.1:3001';
@@ -40,10 +41,19 @@ export const PROXY_CACHE_CONTROL = 'private, no-store';
  * It comes from `withPermission`'s already-resolved user, and the header set is
  * rebuilt from scratch below — so a client cannot smuggle in an identity of its
  * own choosing by sending the header itself.
+ *
+ * `forwardSubjectToken` also sends the caller's SSO token as a bearer, for a
+ * route that queries a source database on the caller's behalf (object
+ * instances, as chat does): a connection set to authenticate as the signed-in
+ * user needs it, and the backend refuses such a query without one. It needs
+ * `userId`, whose account the token is read from.
  */
 export async function proxyToBackend(
 	req: Request,
-	{ userId }: { userId?: string } = {},
+	{
+		userId,
+		forwardSubjectToken = false,
+	}: { userId?: string; forwardSubjectToken?: boolean } = {},
 ): Promise<Response> {
 	const incoming = new URL(req.url);
 	const target = `${PYTHON_API_URL}${incoming.pathname}${incoming.search}`;
@@ -52,6 +62,10 @@ export async function proxyToBackend(
 	const contentType = req.headers.get('content-type');
 	if (contentType) headers['Content-Type'] = contentType;
 	if (userId) Object.assign(headers, buildInternalIdentityHeaders(userId));
+	if (forwardSubjectToken && userId) {
+		const subjectToken = await resolveSubjectToken(req.headers, userId);
+		if (subjectToken) headers.Authorization = `Bearer ${subjectToken}`;
+	}
 
 	const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
 	// Bytes, not text: a multipart upload of a PDF or Word file is not valid

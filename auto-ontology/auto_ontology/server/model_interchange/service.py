@@ -154,9 +154,16 @@ def _project_terms_onto_one_table(
     return projected
 
 
-def _dump_yaml(document: AutoOntologyModelDocument) -> str:
+#: Native-only parts of a document, left out of what the Ossie converter reads:
+#: Ossie has no counterpart for the object layer.
+_NOT_FOR_OSSIE = {"semantic_layer": {"object_types", "link_types"}}
+
+
+def _dump_yaml(
+    document: AutoOntologyModelDocument, *, exclude: dict[str, Any] | None = None
+) -> str:
     return yaml.safe_dump(
-        document.model_dump(mode="python"),
+        document.model_dump(mode="python", exclude=exclude),
         sort_keys=False,
         default_flow_style=False,
     )
@@ -192,7 +199,7 @@ def _export_document(request: ExportRequest) -> AutoOntologyModelDocument:
 def _ossie_source(document: AutoOntologyModelDocument) -> str:
     """Return the native YAML the Ossie converter reads for *document*."""
     _validate_ossie_metric_names(document)
-    return _dump_yaml(_project_terms_onto_one_table(document))
+    return _dump_yaml(_project_terms_onto_one_table(document), exclude=_NOT_FOR_OSSIE)
 
 
 def export_model(request: ExportRequest) -> str:

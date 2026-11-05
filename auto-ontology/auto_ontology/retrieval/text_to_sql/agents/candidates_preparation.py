@@ -48,6 +48,7 @@ from auto_ontology.dal.sql_attributes import (
     fetch_tables_from_sql_attributes,
 )
 from auto_ontology.dal.terms import fetch_term_synonyms, fetch_term_table_pairs
+from auto_ontology.objects.context import annotate_business_objects
 from auto_ontology.retrieval.data_access.relevant_tables import (
     dedupe_merge_relevant_tables,
     get_relevant_tables,
@@ -166,8 +167,10 @@ def _format_relevance_filter_column(c: dict) -> str:
 def _build_relevance_tables_summary(tables: list[dict]) -> str:
     lines = []
     for t in tables:
+        business = t.get("business_object") or {}
+        tag = f" (business object: {business['name']})" if business.get("name") else ""
         lines.append(
-            f"- {_qualified_name(t)}: {t.get('description', '(no description)')}"
+            f"- {_qualified_name(t)}{tag}: {t.get('description', '(no description)')}"
         )
         cols = t.get("columns") or []
         if cols:
@@ -628,6 +631,11 @@ class CandidatePreparationAgent(BaseAgent):
                 len(metadata_incomplete_ids),
             )
 
+        # --- 4f. Name each table's business object and its confirmed links ---
+        # Before the relevance filter, so a question asked in the object
+        # layer's words ("下单客户") finds the tables it means.
+        relevant_tables = annotate_business_objects(relevant_tables)
+
         # Snapshot the candidate pool BEFORE the relevance filter runs. §5c's
         # bridge reconciliation must only ever restore a table that was
         # already a candidate here (and that the filter had a chance to see)
@@ -752,6 +760,9 @@ class CandidatePreparationAgent(BaseAgent):
                     for a in schema_named_anchors
                 ],
             )
+
+        # Tables the junction and bridge steps added since 4f get theirs too.
+        relevant_tables = annotate_business_objects(relevant_tables)
 
         # Columns the caller may not read never reach the generator: the
         # connector would refuse them anyway, and a model that never sees a
