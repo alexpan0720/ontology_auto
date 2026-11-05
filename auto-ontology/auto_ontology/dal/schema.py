@@ -1622,6 +1622,104 @@ subscription_run = Table(
 )
 
 # ---------------------------------------------------------------------------
+# Object layer: business objects over catalog tables, and the links between them
+# ---------------------------------------------------------------------------
+
+OBJECT_CANDIDATE = "candidate"
+OBJECT_ACTIVE = "active"
+
+LINK_FOREIGN_KEY = "foreign_key"
+LINK_SEMANTIC_FK = "semantic_fk"
+LINK_MANUAL = "manual"
+
+# One business object ("客户", "订单") backed by one catalog table, one row per
+# instance. Columns are referenced by *name*, as ``catalog_table.pk`` does:
+# column ids are the ingest's to replace, names are what the source keeps. A
+# generated type starts as a ``candidate`` and is invisible outside the settings
+# page until someone confirms it.
+object_type = Table(
+    "object_type",
+    METADATA,
+    _id(),
+    Column(
+        "table_id",
+        Text,
+        ForeignKey(catalog_table.c.id, ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    ),
+    Column("display_name", Text, nullable=False),
+    Column("description", Text, nullable=True),
+    Column("pk_column", Text, nullable=False),
+    # The column an instance is called by in lists and page titles; null falls
+    # back to the key.
+    Column("title_column", Text, nullable=True),
+    Column("status", Text, nullable=False, server_default=text("'candidate'")),
+    *_edited(),
+    CheckConstraint(
+        f"status IN ('{OBJECT_CANDIDATE}', '{OBJECT_ACTIVE}')", name="status_value"
+    ),
+)
+
+# Overrides on a type's properties. A type's properties are its table's columns,
+# read live, so a column added at the source appears without a write here; a row
+# exists only for a column someone renamed or hid.
+object_property = Table(
+    "object_property",
+    METADATA,
+    Column(
+        "object_type_id",
+        Text,
+        ForeignKey(object_type.c.id, ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("column_name", Text, primary_key=True),
+    Column("display_name", Text, nullable=True),
+    Column("hidden", Boolean, nullable=False, server_default=text("false")),
+)
+
+# A many-to-one link: each ``object_type`` instance points at one target
+# instance whose ``target_column`` equals its ``source_column``. Read backwards
+# it is the one-to-many ("客户的订单"), named by ``reverse_display_name``.
+link_type = Table(
+    "link_type",
+    METADATA,
+    _id(),
+    Column(
+        "object_type_id",
+        Text,
+        ForeignKey(object_type.c.id, ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column(
+        "target_object_type_id",
+        Text,
+        ForeignKey(object_type.c.id, ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("source_column", Text, nullable=False),
+    Column("target_column", Text, nullable=False),
+    Column("display_name", Text, nullable=False),
+    Column("reverse_display_name", Text, nullable=False),
+    Column("origin", Text, nullable=False, server_default=text("'manual'")),
+    Column("status", Text, nullable=False, server_default=text("'candidate'")),
+    *_edited(),
+    UniqueConstraint(
+        "object_type_id",
+        "source_column",
+        "target_object_type_id",
+        name="uq_link_type_source",
+    ),
+    CheckConstraint(
+        f"status IN ('{OBJECT_CANDIDATE}', '{OBJECT_ACTIVE}')", name="status_value"
+    ),
+    CheckConstraint(
+        f"origin IN ('{LINK_FOREIGN_KEY}', '{LINK_SEMANTIC_FK}', '{LINK_MANUAL}')",
+        name="origin_value",
+    ),
+)
+
+# ---------------------------------------------------------------------------
 # Indexes for the read paths
 # ---------------------------------------------------------------------------
 
@@ -1634,6 +1732,7 @@ Index("ix_glossary_candidate_import_id", glossary_candidate.c.import_id)
 Index("ix_question_outcome_created", question_outcome.c.created)
 Index("ix_access_request_user_id", access_request.c.user_id)
 Index("ix_subscription_run_subscription_id", subscription_run.c.subscription_id)
+Index("ix_link_type_target_object_type_id", link_type.c.target_object_type_id)
 Index("ix_catalog_table_schema_id", catalog_table.c.schema_id)
 Index("ix_catalog_table_name", catalog_table.c.name)
 Index("ix_catalog_column_table_id", catalog_column.c.table_id)
@@ -1851,6 +1950,14 @@ __all__ = [
     "RUN_QUIET",
     "RUN_FAILED",
     "subscription_run",
+    "OBJECT_CANDIDATE",
+    "OBJECT_ACTIVE",
+    "LINK_FOREIGN_KEY",
+    "LINK_SEMANTIC_FK",
+    "LINK_MANUAL",
+    "object_type",
+    "object_property",
+    "link_type",
     "BOT_DINGTALK",
     "BOT_FEISHU",
     "bot_config",

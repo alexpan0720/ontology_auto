@@ -44,6 +44,7 @@ from auto_ontology.server.subscriptions.router import (  # noqa: E402
     router as subscriptions_router,
 )
 from auto_ontology.server.metadata.router import router as metadata_router  # noqa: E402
+from auto_ontology.server.objects.router import router as objects_router  # noqa: E402
 from auto_ontology.server.rules.router import router as rules_router  # noqa: E402
 from auto_ontology.server.semantic_compilation.router import (  # noqa: E402
     router as semantic_compilation_router,
@@ -119,6 +120,7 @@ def create_app() -> FastAPI:
     app.include_router(insights_router, prefix="/api", tags=["insights"])
     app.include_router(access_requests_router, prefix="/api", tags=["access-requests"])
     app.include_router(subscriptions_router, prefix="/api", tags=["subscriptions"])
+    app.include_router(objects_router, prefix="/api", tags=["objects"])
     app.include_router(glossary_import_router, prefix="/api", tags=["glossary-import"])
     app.include_router(users_router, prefix="/api", tags=["users"])
     app.include_router(tags_router, prefix="/api", tags=["tags"])

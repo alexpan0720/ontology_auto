@@ -1,0 +1,19 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+import { withPermission } from '@/auth/with-auth';
+import { proxyToBackend } from '@/auth/proxy-backend';
+
+// One object type; editing it is a catalog edit.
+export const GET = withPermission({ catalog: ['read'] })((req, { user }) =>
+	proxyToBackend(req, { userId: user.id }),
+);
+
+export const PATCH = withPermission({ catalog: ['edit'] })((req, { user }) =>
+	proxyToBackend(req, { userId: user.id }),
+);
+
+export const DELETE = withPermission({ catalog: ['edit'] })((req, { user }) =>
+	proxyToBackend(req, { userId: user.id }),
+);

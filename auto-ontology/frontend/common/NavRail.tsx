@@ -20,6 +20,7 @@ const navItems: NavItem[] = [
 	{ icon: IconName.ChatBubble, href: '/chat', label: '对话' },
 	{ icon: IconName.Discovery, href: '/discovery', label: '发现' },
 	{ icon: IconName.Terms, href: '/terms', label: '术语' },
+	{ icon: IconName.Cube, href: '/objects', label: '对象' },
 	{ icon: IconName.ChartBar, href: '/analysis', label: '分析' },
 	{ icon: IconName.Exploration, href: '/exploration', label: '探索' },
 	{ icon: IconName.Database, href: '/data', label: '数据' },

@@ -21,6 +21,7 @@ from decimal import Decimal
 from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
+import pandas as pd
 import sqlglot
 from sqlglot import exp
 
@@ -46,7 +47,9 @@ class QueryResult:
 
 
 def _json_value(value: Any) -> Any:
-    if value is None:
+    # A null in a date column reads back from pandas as NaT, which is neither
+    # None nor a datetime and would otherwise be stringified as "NaT".
+    if value is None or value is pd.NaT:
         return None
     if hasattr(value, "item") and not isinstance(value, (str, bytes)):
         value = value.item()  # numpy scalars
