@@ -6,7 +6,7 @@ import type { Metadata } from 'next';
 import { requireUser } from '@/auth/auth-guards';
 
 export const metadata: Metadata = {
-	title: '分析',
+	title: '已保存查询',
 };
 
 export default async function AnalysisLayout({ children }: { children: React.ReactNode }) {

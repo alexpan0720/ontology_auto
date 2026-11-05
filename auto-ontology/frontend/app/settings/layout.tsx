@@ -8,7 +8,7 @@ import { requireAdmin } from '@/auth/auth-guards';
 import { readConnectionsEnvSource } from '@/lib/server/connections';
 
 export const metadata: Metadata = {
-	title: '设置',
+	title: '管理中心',
 };
 
 // The entire Settings section (Connections, Zones, Users, SSO) is admin-only.

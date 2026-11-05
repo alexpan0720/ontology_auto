@@ -10,6 +10,7 @@ import { useSearchParams } from 'next/navigation';
 import { objectTypesApi } from '@/api/objects';
 import { EmptyState } from '@/common/EmptyState';
 import { Icon, IconName } from '@/common/icons';
+import { PageHeader } from '@/common/PageHeader';
 import { SearchInput } from '@/common/SearchInput';
 import { Spinner } from '@/common/Spinner';
 import { CARD_COMPACT, NOTICE_ERROR } from '@/components/settings/pageStyles';
@@ -88,15 +89,11 @@ export const ObjectsView = () => {
 
 	return (
 		<div className="flex h-full w-full flex-col bg-white dark:bg-zinc-950">
-			<header className="flex items-center gap-3 border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-				<Icon name={IconName.Cube} className="h-5 w-5 text-body dark:text-zinc-300" />
-				<h1 className="text-lg font-semibold tracking-tight text-heading dark:text-zinc-100">
-					对象
-				</h1>
-				<p className="text-xs text-secondary">
-					以业务对象查看数据：客户、订单及其之间的关系。按你的数据权限读取。
-				</p>
-			</header>
+			<PageHeader
+				title="业务对象"
+				description="按客户、订单这样的业务对象查看数据和它们之间的关联。只显示你有权限看到的数据。"
+				icon={IconName.Cube}
+			/>
 			<div className="flex min-h-0 flex-1">
 				<aside className="flex w-60 shrink-0 flex-col gap-2 border-r border-zinc-200 p-3 dark:border-zinc-800">
 					<SearchInput

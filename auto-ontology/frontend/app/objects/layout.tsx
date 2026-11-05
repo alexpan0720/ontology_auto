@@ -6,7 +6,7 @@ import type { Metadata } from 'next';
 import { requireUser } from '@/auth/auth-guards';
 
 export const metadata: Metadata = {
-	title: '对象',
+	title: '业务对象',
 };
 
 export default async function ObjectsLayout({ children }: { children: React.ReactNode }) {

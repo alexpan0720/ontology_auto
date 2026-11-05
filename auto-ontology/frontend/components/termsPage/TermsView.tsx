@@ -14,6 +14,7 @@ import { Button } from '@/common/Button';
 import { EmptyState } from '@/common/EmptyState';
 import { Size, ButtonTheme } from '@/enums/button';
 import { Icon, IconName } from '@/common/icons';
+import { PageHeader } from '@/common/PageHeader';
 import { InfiniteScroll } from '@/common/InfiniteScroll';
 import { SkeletonCard } from '@/common/Skeleton';
 import { ConfirmModal, ModalCreateNewItem } from '@/common/modal';
@@ -1686,12 +1687,11 @@ export const TermsView = () => {
 
 	return (
 		<div className="flex h-full w-full flex-col bg-white dark:bg-zinc-950">
-			<header className="flex items-center gap-3 border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-				<Icon name={IconName.Terms} className="h-5 w-5 text-body dark:text-zinc-300" />
-				<h1 className="text-lg font-semibold tracking-tight text-heading dark:text-zinc-100">
-					术语
-				</h1>
-			</header>
+			<PageHeader
+				title="业务词典"
+				description="业务术语、指标口径以及它们对应的数据。问数时会按这里的定义理解你的问题。"
+				icon={IconName.Terms}
+			/>
 
 			<InfiniteScroll
 				className="flex-1 px-6 py-6"

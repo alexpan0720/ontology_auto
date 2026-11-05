@@ -19,9 +19,9 @@ export const SettingsPanelLayout = ({
 	connectionsEnvManaged,
 }: SettingsPanelLayoutProps) => (
 	<BackPanelLayout
-		panelAriaLabel="设置分类"
-		expandAriaLabel="展开设置菜单"
-		collapseAriaLabel="收起设置菜单"
+		panelAriaLabel="管理中心菜单"
+		expandAriaLabel="展开管理中心菜单"
+		collapseAriaLabel="收起管理中心菜单"
 		panel={<SettingsNav connectionsEnvManaged={connectionsEnvManaged} />}
 	>
 		{children}

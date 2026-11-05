@@ -6,7 +6,7 @@ import type { Metadata } from 'next';
 import { requireUser } from '@/auth/auth-guards';
 
 export const metadata: Metadata = {
-	title: '发现',
+	title: '搜索',
 };
 
 export default async function DiscoveryLayout({ children }: { children: React.ReactNode }) {
