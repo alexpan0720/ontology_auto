@@ -43,6 +43,8 @@ import LightningSvg from './svg/lightning.svg';
 import DiscoverySvg from './svg/discovery.svg';
 import FilterSvg from './svg/filter.svg';
 import CubeSvg from './svg/cube.svg';
+import HomeSvg from './svg/home.svg';
+import SidebarSvg from './svg/sidebar.svg';
 
 export enum IconName {
 	Close = 'close',
@@ -84,6 +86,8 @@ export enum IconName {
 	Discovery = 'discovery',
 	Filter = 'filter',
 	Cube = 'cube',
+	Home = 'home',
+	Sidebar = 'sidebar',
 }
 
 const icons: Record<IconName, FC<SVGProps<SVGSVGElement>>> = {
@@ -126,6 +130,8 @@ const icons: Record<IconName, FC<SVGProps<SVGSVGElement>>> = {
 	[IconName.Discovery]: DiscoverySvg,
 	[IconName.Filter]: FilterSvg,
 	[IconName.Cube]: CubeSvg,
+	[IconName.Home]: HomeSvg,
+	[IconName.Sidebar]: SidebarSvg,
 };
 
 export type IconProps = SVGProps<SVGSVGElement> & {
