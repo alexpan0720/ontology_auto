@@ -130,6 +130,7 @@
     "record_audit": "(*, user_id: 'str | None', conversation_id: 'str | None', question: 'str | None', sql: 'str | None', decision: 'str', reason: 'str | None', policy_ids: 'list[str]', statements: 'list[dict[str, Any]]') -> 'None'",
     "resolve_access": "(user_id: 'str | None') -> 'AccessContext'",
     "restrict_pii_columns": "(created_by: 'str | None' = None) -> 'tuple[int, int]'",
+    "suggested_questions": "(limit: 'int') -> 'list[dict[str, Any]]'",
     "update_policy": "(policy_id: 'str', changes: 'dict[str, Any]') -> 'bool'",
     "update_verified": "(query_id: 'str', changes: 'dict[str, Any]', reviewer: 'str | None') -> 'bool'",
     "user_groups": "(user_id: 'str') -> 'list[dict[str, Any]]'"

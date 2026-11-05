@@ -13944,6 +13944,52 @@
         ]
       }
     },
+    "/api/verified-queries/suggestions": {
+      "get": {
+        "description": "Certified questions to suggest to anyone who may ask, without their SQL.",
+        "operationId": "suggested_questions_api_verified_queries_suggestions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 6,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Suggested Questions Api Verified Queries Suggestions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suggested Questions",
+        "tags": [
+          "governance"
+        ]
+      }
+    },
     "/api/verified-queries/{query_id}": {
       "delete": {
         "description": "Delete an entry.",

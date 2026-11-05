@@ -11,6 +11,7 @@ import type {
 	AccessPolicyInput,
 	PolicyGroupOption,
 	PolicyTableOption,
+	SuggestedQuestion,
 	VerifiedQuery,
 	VerifiedStatus,
 } from '@/types/governance';
@@ -66,4 +67,7 @@ export const verifiedQueriesApi = {
 		changes: Partial<VerifiedInput> & { status?: VerifiedStatus },
 	): Promise<Ok> => requests.patch(`verified-queries/${id}`, changes),
 	remove: (id: string): Promise<Ok> => requests.delete(`verified-queries/${id}`),
+	/** Certified questions to suggest, without their SQL; anyone who may ask can read them. */
+	suggestions: (limit = 6): Promise<ResponseWithError<ResponseWithCount<SuggestedQuestion[]>>> =>
+		requests.get('verified-queries/suggestions', { limit }),
 };

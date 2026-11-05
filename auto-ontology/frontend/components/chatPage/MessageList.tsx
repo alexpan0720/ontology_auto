@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import type { ChatMessage, GraphStep } from '@/types/chat';
 import { EmptyState } from '@/common/EmptyState';
 import { Icon, IconName } from '@/common/icons';
@@ -22,6 +22,8 @@ type MessageListProps = {
 	messageListLoading?: boolean;
 	/** The open conversation, for rating its answers. */
 	conversationId?: string | null;
+	/** What an empty conversation shows instead of the generic prompt. */
+	welcome?: ReactNode;
 };
 
 export const MessageList = ({
@@ -31,6 +33,7 @@ export const MessageList = ({
 	liveSql,
 	messageListLoading = false,
 	conversationId = null,
+	welcome,
 }: MessageListProps) => {
 	const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -54,6 +57,7 @@ export const MessageList = ({
 	}
 
 	if (messages.length === 0 && !isLoading) {
+		if (welcome) return welcome;
 		return (
 			<EmptyState
 				variant={EmptyStateVariant.Welcome}

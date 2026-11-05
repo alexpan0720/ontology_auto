@@ -23,6 +23,6 @@ export const requireUser = async () => {
  */
 export const requireAdmin = async () => {
 	const session = await requireUser();
-	if (session.user.role !== Role.Admin) redirect('/chat');
+	if (session.user.role !== Role.Admin) redirect('/home');
 	return session;
 };

@@ -557,6 +557,31 @@ def list_verified(
     return [_verified_public(r) for r in rows]
 
 
+def suggested_questions(limit: int) -> list[dict[str, Any]]:
+    """Certified questions, most recently reviewed first, each wording once.
+
+    Only the question: the SQL behind it is for reviewers, and a page that
+    suggests what to ask has no use for it.
+    """
+    vq = s.verified_query
+    rows = store().query_read(
+        select(vq.c.id, vq.c.question)
+        .where(vq.c.status == s.VERIFIED_CERTIFIED)
+        .order_by(vq.c.reviewed.desc().nulls_last(), vq.c.created.desc())
+    )
+    seen: set[str] = set()
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        key = row["question"].strip().casefold()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append({"id": row["id"], "question": row["question"].strip()})
+        if len(out) >= limit:
+            break
+    return out
+
+
 def create_verified(
     *,
     question: str,

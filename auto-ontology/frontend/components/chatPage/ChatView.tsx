@@ -19,6 +19,7 @@ import { semanticCompilationApi } from '@/api/settings';
 import { ChatSidebar } from './ChatSidebar';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
+import { ChatWelcome } from './ChatWelcome';
 import { SemanticNotReady } from './SemanticNotReady';
 
 export const ChatView = () => {
@@ -27,6 +28,9 @@ export const ChatView = () => {
 	const searchParams = useSearchParams();
 	const rawFocus = searchParams.get('focus');
 	const focusId = rawFocus != null && rawFocus.trim() !== '' ? rawFocus.trim() : null;
+	// A question carried in from elsewhere (the home page), asked on arrival.
+	const carriedQuestion = searchParams.get('q')?.trim() || null;
+	const askedCarriedRef = useRef(false);
 
 	const [activeConvId, setActiveConvId] = useState<string | null>(focusId);
 	const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -52,6 +56,9 @@ export const ChatView = () => {
 	const updateFocusInUrl = useCallback(
 		(id: string | null) => {
 			const params = new URLSearchParams(searchParams.toString());
+			// Once a conversation exists the carried question is in it; leaving
+			// it in the URL would ask it again on reload.
+			params.delete('q');
 			if (id) {
 				params.set('focus', id);
 			} else {
@@ -211,6 +218,12 @@ export const ChatView = () => {
 		[activeConvId, sendMessage, refreshConversations, updateFocusInUrl],
 	);
 
+	useEffect(() => {
+		if (!semanticReady || !carriedQuestion || focusId || askedCarriedRef.current) return;
+		askedCarriedRef.current = true;
+		void handleSend(carriedQuestion);
+	}, [semanticReady, carriedQuestion, focusId, handleSend]);
+
 	return (
 		<div className="flex h-full bg-white dark:bg-zinc-950">
 			<ChatSidebar
@@ -241,6 +254,9 @@ export const ChatView = () => {
 							liveSql={liveSql}
 							messageListLoading={messageListLoading}
 							conversationId={activeConvId}
+							welcome={
+								<ChatWelcome onAsk={(question) => void handleSend(question)} />
+							}
 						/>
 
 						<ChatInput
