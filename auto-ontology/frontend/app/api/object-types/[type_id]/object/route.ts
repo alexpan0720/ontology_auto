@@ -7,5 +7,5 @@ import { proxyToBackend } from '@/auth/proxy-backend';
 
 // One instance and what it links to.
 export const GET = withPermission({ catalog: ['read'] })((req, { user }) =>
-	proxyToBackend(req, { userId: user.id }),
+	proxyToBackend(req, { userId: user.id, forwardSubjectToken: true }),
 );

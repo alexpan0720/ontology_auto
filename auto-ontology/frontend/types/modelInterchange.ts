@@ -14,6 +14,8 @@ export type ImportEntityCounts = {
 	column_attributes: number;
 	sql_attributes: number;
 	custom_analyses: number;
+	object_types: number;
+	link_types: number;
 };
 
 export type ImportEmbedCounts = {
@@ -37,6 +39,8 @@ export type ImportSummary = {
 	semantic_fks: number;
 	sql_attributes: number;
 	custom_analyses: number;
+	object_types: number;
+	link_types: number;
 	pending_embed?: ImportEmbedCounts;
 	embeddings?: ImportEmbedResult;
 };

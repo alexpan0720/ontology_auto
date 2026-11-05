@@ -59,6 +59,9 @@ from auto_ontology.server.model_interchange.schemas import (
     ModelDataLayer,
     ModelForeignKey,
     ModelJoin,
+    ModelLinkType,
+    ModelObjectProperty,
+    ModelObjectType,
     ModelSchema,
     ModelSemanticFk,
     ModelSemanticLayer,
@@ -430,6 +433,56 @@ def _export_custom_analyses(database_ids: list[str]) -> list[dict[str, Any]]:
     ]
 
 
+def _export_object_types(database_ids: list[str]) -> list[dict[str, Any]]:
+    """Object types on tables in scope, each with its property overrides."""
+    o, p = s.object_type, s.object_property
+    scope = (
+        s.catalog_database.join(
+            s.catalog_schema, s.catalog_schema.c.database_id == s.catalog_database.c.id
+        )
+        .join(s.catalog_table, s.catalog_table.c.schema_id == s.catalog_schema.c.id)
+        .join(o, o.c.table_id == s.catalog_table.c.id)
+    )
+    types = [
+        dict(r)
+        for r in store().query_read(
+            select(o)
+            .select_from(scope)
+            .where(_database_scope(database_ids))
+            .order_by(o.c.display_name, o.c.id)
+        )
+    ]
+    if not types:
+        return []
+    overrides = store().query_read(
+        select(p)
+        .where(p.c.object_type_id.in_([t["id"] for t in types]))
+        .order_by(p.c.object_type_id, p.c.column_name)
+    )
+    by_type: dict[str, list[dict[str, Any]]] = {}
+    for row in overrides:
+        by_type.setdefault(row["object_type_id"], []).append(row)
+    return [{**t, "properties": by_type.get(t["id"], [])} for t in types]
+
+
+def _export_link_types(type_ids: list[str]) -> list[dict[str, Any]]:
+    """Links whose two ends are both among *type_ids*."""
+    if not type_ids:
+        return []
+    lt = s.link_type
+    return [
+        dict(r)
+        for r in store().query_read(
+            select(lt)
+            .where(
+                lt.c.object_type_id.in_(type_ids),
+                lt.c.target_object_type_id.in_(type_ids),
+            )
+            .order_by(lt.c.created, lt.c.id)
+        )
+    ]
+
+
 def fetch_export_rows(database_ids: list[str]) -> dict[str, Any]:
     """The raw rows :func:`assemble_export_document` turns into a document."""
     return {
@@ -440,6 +493,15 @@ def fetch_export_rows(database_ids: list[str]) -> dict[str, Any]:
         "semantic_fks": _export_semantic_fks(database_ids),
         "sql_attributes": _export_sql_attributes(database_ids),
         "custom_analyses": _export_custom_analyses(database_ids),
+        **_object_layer_rows(database_ids),
+    }
+
+
+def _object_layer_rows(database_ids: list[str]) -> dict[str, list[dict[str, Any]]]:
+    object_types = _export_object_types(database_ids)
+    return {
+        "object_types": object_types,
+        "link_types": _export_link_types([t["id"] for t in object_types]),
     }
 
 
@@ -555,6 +617,7 @@ def assemble_export_document(
         for row in rows["custom_analyses"]
         if row.get("id")
     ]
+    object_types, link_types = _assemble_object_layer(rows, table_ids)
     return AutoOntologyModelDocument(
         data_layer=ModelDataLayer(
             databases=databases, foreign_keys=foreign_keys, joins=joins
@@ -564,9 +627,56 @@ def assemble_export_document(
             semantic_fks=semantic_fks,
             sql_attributes=sql_attributes,
             custom_analyses=custom_analyses,
+            object_types=object_types,
+            link_types=link_types,
         ),
         zones=[],
     )
+
+
+def _assemble_object_layer(
+    rows: dict[str, Any], table_ids: set[str]
+) -> tuple[list[ModelObjectType], list[ModelLinkType]]:
+    """Object and link types whose tables the exported catalog carries."""
+    object_types = [
+        ModelObjectType(
+            id=str(row["id"]),
+            table_id=str(row["table_id"]),
+            name=row.get("display_name") or "",
+            description=row.get("description") or "",
+            pk_column=row["pk_column"],
+            title_column=row.get("title_column") or "",
+            status=row.get("status") or s.OBJECT_ACTIVE,
+            properties=[
+                ModelObjectProperty(
+                    column=prop["column_name"],
+                    name=prop.get("display_name") or "",
+                    hidden=bool(prop.get("hidden")),
+                )
+                for prop in row.get("properties") or []
+            ],
+        )
+        for row in rows.get("object_types") or []
+        if str(row.get("table_id") or "") in table_ids
+    ]
+    type_ids = {object_type.id for object_type in object_types}
+    link_types = [
+        ModelLinkType(
+            id=str(row["id"]),
+            source_object_type_id=str(row["object_type_id"]),
+            target_object_type_id=str(row["target_object_type_id"]),
+            source_column=row["source_column"],
+            target_column=row["target_column"],
+            name=row.get("display_name") or "",
+            reverse_name=row.get("reverse_display_name") or "",
+            origin=row.get("origin") or s.LINK_MANUAL,
+            status=row.get("status") or s.OBJECT_ACTIVE,
+        )
+        for row in rows.get("link_types") or []
+        if str(row.get("object_type_id")) in type_ids
+        and str(row.get("target_object_type_id")) in type_ids
+    ]
+    return object_types, link_types
 
 
 def _column_live_id_map(catalog_rows: list[dict[str, Any]]) -> dict[str, str]:
@@ -971,6 +1081,8 @@ def apply_import_model(
         "column_attributes": 0,
         "sql_attributes": 0,
         "custom_analyses": 0,
+        "object_types": 0,
+        "link_types": 0,
     }
     skipped: dict[str, int] = {key: 0 for key in created}
     term_names = {term.id: term.name for term in document.semantic_layer.terms}
@@ -995,6 +1107,7 @@ def apply_import_model(
         _import_custom_analyses(
             document, id_map, created, skipped, embed_buffer, schema_cache
         )
+        _import_object_layer(document, id_map, created, skipped, replace, live_db_ids)
 
     summary: dict[str, Any] = {
         "database_ids": live_db_ids,
@@ -1011,6 +1124,8 @@ def apply_import_model(
             for key in _YAML_SOURCE_KEYS
         ),
         "custom_analyses": len(document.semantic_layer.custom_analyses),
+        "object_types": len(document.semantic_layer.object_types),
+        "link_types": len(document.semantic_layer.link_types),
     }
     if embed_buffer is not None:
         summary["pending_embed"] = {
@@ -1747,3 +1862,137 @@ def _import_custom_analyses(
                     database_name=database_name,
                 ),
             )
+
+
+def _import_object_layer(
+    document: AutoOntologyModelDocument,
+    id_map: dict[str, str],
+    created: dict[str, int],
+    skipped: dict[str, int],
+    replace: bool,
+    live_db_ids: list[str],
+) -> None:
+    """Import object and link types, matched by table and by link key.
+
+    An object type is one per table, so the table is its identity: the
+    document's type is matched to whatever type already sits on the table its
+    ``table_id`` resolves to. Without ``replace`` an existing one is left as it
+    is; with it, it takes the document's fields and property overrides. A link
+    is matched by its unique source type, source column and target type, the
+    same way.
+
+    With ``replace``, object and link types on the imported databases that the
+    document does not mention are deleted -- but only when the document carries
+    the object layer at all. One written before the layer existed, or converted
+    from Apache Ossie, says nothing about objects, and replacing with it must
+    not wipe them.
+    """
+    layer = document.semantic_layer
+    o, p, lt = s.object_type, s.object_property, s.link_type
+    kept_types: list[str] = []
+    for object_type in layer.object_types:
+        table_id = _remap_optional(id_map, object_type.table_id)
+        if not table_id:
+            skipped["object_types"] += 1
+            continue
+        values = {
+            "display_name": object_type.name or object_type.pk_column,
+            "description": object_type.description or None,
+            "pk_column": object_type.pk_column,
+            "title_column": object_type.title_column or None,
+            "status": object_type.status,
+        }
+        existing = store().query_read(select(o.c.id).where(o.c.table_id == table_id))
+        if existing:
+            live_id = existing[0]["id"]
+            id_map[object_type.id] = live_id
+            kept_types.append(live_id)
+            skipped["object_types"] += 1
+            if not replace:
+                continue
+            store().query_write(update(o).where(o.c.id == live_id).values(**values))
+            store().query_write(p.delete().where(p.c.object_type_id == live_id))
+        else:
+            live_id = store().query_write(
+                insert(o).values(table_id=table_id, **values).returning(o.c.id)
+            )[0]["id"]
+            id_map[object_type.id] = live_id
+            kept_types.append(live_id)
+            created["object_types"] += 1
+        overrides = [
+            {
+                "object_type_id": live_id,
+                "column_name": prop.column,
+                "display_name": prop.name or None,
+                "hidden": prop.hidden,
+            }
+            for prop in object_type.properties
+            if prop.name or prop.hidden
+        ]
+        if overrides:
+            store().query_write(insert(p).values(overrides).on_conflict_do_nothing())
+
+    kept_links: list[str] = []
+    for link in layer.link_types:
+        source = id_map.get(link.source_object_type_id)
+        target = id_map.get(link.target_object_type_id)
+        if not source or not target:
+            skipped["link_types"] += 1
+            continue
+        key = (
+            (lt.c.object_type_id == source)
+            & (lt.c.source_column == link.source_column)
+            & (lt.c.target_object_type_id == target)
+        )
+        values = {
+            "target_column": link.target_column,
+            "display_name": link.name or link.target_column,
+            "reverse_display_name": link.reverse_name or link.source_column,
+            "origin": link.origin,
+            "status": link.status,
+        }
+        existing = store().query_read(select(lt.c.id).where(key))
+        if existing:
+            kept_links.append(existing[0]["id"])
+            skipped["link_types"] += 1
+            if replace:
+                store().query_write(update(lt).where(key).values(**values))
+            continue
+        rows = store().query_write(
+            insert(lt)
+            .values(
+                object_type_id=source,
+                source_column=link.source_column,
+                target_object_type_id=target,
+                **values,
+            )
+            .returning(lt.c.id)
+        )
+        kept_links.append(rows[0]["id"])
+        created["link_types"] += 1
+
+    if not replace or "object_types" not in layer.model_fields_set:
+        return
+    scoped_tables = (
+        select(s.catalog_table.c.id)
+        .select_from(
+            s.catalog_table.join(
+                s.catalog_schema, s.catalog_schema.c.id == s.catalog_table.c.schema_id
+            )
+        )
+        .where(s.catalog_schema.c.database_id.in_(live_db_ids))
+    )
+    store().query_write(
+        o.delete().where(
+            o.c.table_id.in_(scoped_tables), o.c.id.notin_(kept_types or [""])
+        )
+    )
+    if "link_types" in layer.model_fields_set:
+        store().query_write(
+            lt.delete().where(
+                lt.c.object_type_id.in_(
+                    select(o.c.id).where(o.c.table_id.in_(scoped_tables))
+                ),
+                lt.c.id.notin_(kept_links or [""]),
+            )
+        )

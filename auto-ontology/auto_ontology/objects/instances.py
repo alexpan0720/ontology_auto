@@ -7,7 +7,9 @@
 Every statement goes through
 :func:`auto_ontology.subscriptions.service.run_query`, so it passes the same
 policy layer as a chat question — row policies filter the instances, masks hide
-values — and lands in the access audit. Columns a column policy withholds are
+values — and lands in the access audit. A connection set to authenticate as the
+signed-in user is reached with the caller's own exchanged token, as chat does,
+so the source database's own grants apply too. Columns a column policy withholds are
 left out of the select list beforehand rather than tripping the refusal: an
 object page with one property missing is more use than no page at all. Only
 the key cannot be dropped, since without it there is no instance to address.
@@ -202,19 +204,52 @@ def equals(column: str, value: Any, data_type: str | None) -> exp.Expression:
 # ---------------------------------------------------------------------------
 
 
-def _connector(database_name: str) -> Any:
+def _load_connectors(subject_token: str | None) -> list[Any]:
+    """The connectors to read through: the caller's own where a connection
+    authenticates as the signed-in user, the shared ones everywhere else."""
     from auto_ontology.connectors import get_connectors
 
-    for connector in get_connectors():
-        if getattr(connector, "database_name", None) == database_name:
-            return connector
-    raise ObjectQueryError(f"找不到数据库连接：{database_name}")
+    if subject_token is None:
+        return get_connectors()
+
+    from auto_ontology.connectors.databricks_oauth import DatabricksOAuthError
+    from auto_ontology.connectors.registry import get_connectors_for_subject_token
+
+    try:
+        return get_connectors_for_subject_token(subject_token)
+    except DatabricksOAuthError as exc:
+        raise ObjectQueryError(f"无法以当前登录用户的身份连接数据库：{exc}") from exc
+
+
+@dataclass
+class Reader:
+    """Who is reading, resolved once per request and shared by its statements.
+
+    An object page runs one statement per link; resolving the caller's
+    policies, or exchanging their SSO token for a connector, once for each
+    would repeat the same work for the same answer.
+    """
+
+    user_id: str | None
+    #: The caller's ``AccessContext``.
+    access: Any
+    #: The caller's SSO token, when a connection authenticates as the user.
+    subject_token: str | None = None
+    _connectors: list[Any] | None = field(default=None, repr=False)
+
+    def connector(self, database_name: str) -> Any:
+        if self._connectors is None:
+            self._connectors = _load_connectors(self.subject_token)
+        for connector in self._connectors:
+            if getattr(connector, "database_name", None) == database_name:
+                return connector
+        raise ObjectQueryError(f"找不到数据库连接：{database_name}")
 
 
 def _run(
     view: TypeView,
     columns: list[str],
-    user_id: str | None,
+    reader: Reader,
     *,
     where: exp.Expression | None = None,
     limit: int | None = None,
@@ -225,7 +260,7 @@ def _run(
     if not view.readable(view.pk):
         raise ObjectQueryError("没有读取该对象主键字段的权限")
     table = view.table
-    connector = _connector(table["database_name"])
+    connector = reader.connector(table["database_name"])
     sql = build_select(
         connector.qualify(table["schema_name"], table["name"]),
         columns,
@@ -239,8 +274,10 @@ def _run(
         return run_query(
             sql,
             table["database_name"],
-            user_id,
+            reader.user_id,
             f"对象浏览：{view.type['display_name']}",
+            connector=connector,
+            access=reader.access,
         ).rows
     except RunError as exc:
         raise ObjectQueryError(str(exc)) from exc
@@ -259,7 +296,7 @@ def _summary(view: TypeView, row: dict[str, Any]) -> dict[str, Any]:
 
 def list_objects(
     view: TypeView,
-    user_id: str | None,
+    reader: Reader,
     *,
     search: str | None = None,
     limit: int = 50,
@@ -273,7 +310,7 @@ def list_objects(
     if needle:
         where = search_condition(list(dict.fromkeys([view.pk, view.title])), needle)
     rows = _run(
-        view, columns, user_id, where=where, limit=limit + 1, offset=max(0, offset)
+        view, columns, reader, where=where, limit=limit + 1, offset=max(0, offset)
     )
     return {
         "columns": columns,
@@ -286,7 +323,7 @@ def _linked(
     other: TypeView,
     column: str,
     value: Any,
-    user_id: str | None,
+    reader: Reader,
     limit: int,
 ) -> dict[str, Any]:
     if value is None:
@@ -296,7 +333,7 @@ def _linked(
     rows = _run(
         other,
         other.shown_columns(),
-        user_id,
+        reader,
         where=equals(column, value, other.data_type(column)),
         limit=limit + 1,
     )
@@ -306,9 +343,7 @@ def _linked(
     }
 
 
-def get_object(
-    view: TypeView, key: str, user_id: str | None, access: Any
-) -> dict[str, Any] | None:
+def get_object(view: TypeView, key: str, reader: Reader) -> dict[str, Any] | None:
     """One instance with its properties and the instances linked to it.
 
     A link whose other end the caller cannot read is reported on that link
@@ -329,7 +364,7 @@ def get_object(
     rows = _run(
         view,
         columns,
-        user_id,
+        reader,
         where=equals(view.pk, key, view.data_type(view.pk)),
         limit=1,
     )
@@ -341,7 +376,7 @@ def get_object(
 
     def other_view(type_id: str) -> TypeView | None:
         if type_id not in others:
-            loaded = load_view(type_id, access)
+            loaded = load_view(type_id, reader.access)
             others[type_id] = (
                 loaded if loaded and loaded.type["status"] == s.OBJECT_ACTIVE else None
             )
@@ -385,7 +420,7 @@ def get_object(
                         other,
                         their_column,
                         row[own_column],
-                        user_id,
+                        reader,
                         1 if outgoing else LINKED_LIMIT,
                     )
                 )

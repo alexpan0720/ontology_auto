@@ -94,9 +94,20 @@ def _connector(database_name: str | None) -> Any:
 
 
 def run_query(
-    sql: str, database_name: str | None, user_id: str | None, label: str
+    sql: str,
+    database_name: str | None,
+    user_id: str | None,
+    label: str,
+    *,
+    connector: Any | None = None,
+    access: Any | None = None,
 ) -> QueryResult:
-    """*sql* as *user_id* would see it; audited like a chat question."""
+    """*sql* as *user_id* would see it; audited like a chat question.
+
+    *connector* and *access* (an ``AccessContext``) save a caller that runs
+    several statements for one request from resolving them each time — and let
+    it bring a connector authenticated as the caller rather than the shared one.
+    """
     from auto_ontology.dal.governance import record_audit, resolve_access
     from auto_ontology.governance.enforce import (
         AccessDeniedError,
@@ -104,10 +115,12 @@ def run_query(
         summarize,
     )
 
-    connector = _connector(database_name)
+    connector = connector or _connector(database_name)
     check_read_only(sql, connector.dialect)
     log: list[dict[str, Any]] = []
-    wrapped = PolicyEnforcingConnector(connector, resolve_access(user_id), log)
+    wrapped = PolicyEnforcingConnector(
+        connector, access if access is not None else resolve_access(user_id), log
+    )
     try:
         frame = wrapped.execute(sql)
     except AccessDeniedError as exc:

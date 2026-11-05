@@ -7,5 +7,5 @@ import { proxyToBackend } from '@/auth/proxy-backend';
 
 // Instances, read under the caller's data policies by the backend.
 export const GET = withPermission({ catalog: ['read'] })((req, { user }) =>
-	proxyToBackend(req, { userId: user.id }),
+	proxyToBackend(req, { userId: user.id, forwardSubjectToken: true }),
 );

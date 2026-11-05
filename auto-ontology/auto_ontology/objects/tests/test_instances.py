@@ -92,11 +92,19 @@ class _Connector:
         return f'"{schema}"."{table}"'
 
 
-def _run_with(rows: list[dict[str, Any]]):
-    calls: list[str] = []
+def _reader(subject_token: str | None = None) -> instances.Reader:
+    return instances.Reader(
+        user_id="u1", access=AccessContext(), subject_token=subject_token
+    )
 
-    def fake_run(sql: str, database: str, user: str | None, label: str) -> QueryResult:
-        calls.append(sql)
+
+def _run_with(rows: list[dict[str, Any]]):
+    calls: list[dict[str, Any]] = []
+
+    def fake_run(
+        sql: str, database: str, user: str | None, label: str, **kwargs: Any
+    ) -> QueryResult:
+        calls.append({"sql": sql, "user": user, **kwargs})
         return QueryResult(rows=rows, columns=list(rows[0]) if rows else [])
 
     return calls, fake_run
@@ -109,9 +117,9 @@ def test_list_objects_pages_by_key_and_reports_more() -> None:
         patch("auto_ontology.connectors.get_connectors", return_value=[_Connector()]),
         patch("auto_ontology.subscriptions.service.run_query", fake_run),
     ):
-        page = instances.list_objects(_view(), "u1", search="c", limit=2)
-    assert calls[0].endswith('ORDER BY "id" LIMIT 3')
-    assert "LIKE '%c%'" in calls[0]
+        page = instances.list_objects(_view(), _reader(), search="c", limit=2)
+    assert calls[0]["sql"].endswith('ORDER BY "id" LIMIT 3')
+    assert "LIKE '%c%'" in calls[0]["sql"]
     assert [o["key"] for o in page["objects"]] == ["0", "1"]
     assert page["objects"][0]["title"] == "c0"
     assert page["has_more"] is True
@@ -119,11 +127,11 @@ def test_list_objects_pages_by_key_and_reports_more() -> None:
 
 def test_a_restricted_key_refuses_before_querying() -> None:
     with pytest.raises(instances.ObjectQueryError):
-        instances.list_objects(_view({"id"}), "u1")
+        instances.list_objects(_view({"id"}), _reader())
 
 
 def test_query_errors_reach_the_caller_as_object_errors() -> None:
-    def failing(*_: Any) -> QueryResult:
+    def failing(*_: Any, **__: Any) -> QueryResult:
         raise RunError("查询失败：boom")
 
     with (
@@ -131,7 +139,65 @@ def test_query_errors_reach_the_caller_as_object_errors() -> None:
         patch("auto_ontology.subscriptions.service.run_query", failing),
         pytest.raises(instances.ObjectQueryError, match="boom"),
     ):
-        instances.list_objects(_view(), "u1")
+        instances.list_objects(_view(), _reader())
+
+
+def test_statements_run_as_the_reader_through_one_connector_lookup() -> None:
+    """The caller's policies and connector are resolved once per request."""
+    rows = [{"id": 1, "name": "c1", "phone": "1"}]
+    calls, fake_run = _run_with(rows)
+    reader = _reader()
+    connector = _Connector()
+    with (
+        patch(
+            "auto_ontology.connectors.get_connectors", return_value=[connector]
+        ) as get_connectors,
+        patch("auto_ontology.subscriptions.service.run_query", fake_run),
+    ):
+        instances.list_objects(_view(), reader)
+        instances.list_objects(_view(), reader, offset=50)
+    assert get_connectors.call_count == 1
+    assert all(c["connector"] is connector for c in calls)
+    assert all(c["access"] is reader.access and c["user"] == "u1" for c in calls)
+
+
+def test_a_signed_in_reader_reads_through_their_own_connectors() -> None:
+    rows = [{"id": 1, "name": "c1", "phone": "1"}]
+    calls, fake_run = _run_with(rows)
+    own = _Connector()
+    with (
+        patch(
+            "auto_ontology.connectors.registry.get_connectors_for_subject_token",
+            return_value=[own],
+        ) as for_token,
+        patch("auto_ontology.connectors.get_connectors") as shared,
+        patch("auto_ontology.subscriptions.service.run_query", fake_run),
+    ):
+        instances.list_objects(_view(), _reader("sso-jwt"))
+    for_token.assert_called_once_with("sso-jwt")
+    shared.assert_not_called()
+    assert calls[0]["connector"] is own
+
+
+def test_a_refused_token_exchange_is_an_object_error() -> None:
+    from auto_ontology.connectors.databricks_oauth import DatabricksOAuthError
+
+    with (
+        patch(
+            "auto_ontology.connectors.registry.get_connectors_for_subject_token",
+            side_effect=DatabricksOAuthError("token rejected"),
+        ),
+        pytest.raises(instances.ObjectQueryError, match="token rejected"),
+    ):
+        instances.list_objects(_view(), _reader("sso-jwt"))
+
+
+def test_an_unknown_database_is_an_object_error() -> None:
+    with (
+        patch("auto_ontology.connectors.get_connectors", return_value=[]),
+        pytest.raises(instances.ObjectQueryError, match="shop"),
+    ):
+        instances.list_objects(_view(), _reader())
 
 
 def test_load_view_marks_columns_a_policy_withholds() -> None:

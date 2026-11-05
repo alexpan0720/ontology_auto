@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from auto_ontology.dal import objects as dal
 from auto_ontology.dal import schema as s
 from auto_ontology.objects import instances, service
-from auto_ontology.server.identity import resolve_internal_user
+from auto_ontology.server.identity import resolve_internal_user, resolve_subject_token
 
 router = APIRouter()
 
@@ -169,14 +169,20 @@ def delete_object_type(type_id: str) -> dict[str, bool]:
 # ---------------------------------------------------------------------------
 
 
-def _active_view(type_id: str, user_id: str | None) -> tuple[Any, Any]:
+def _active_view(type_id: str, request: Request) -> tuple[Any, instances.Reader]:
+    """An active type resolved for the caller, and the reader to query it with."""
     from auto_ontology.dal.governance import resolve_access
 
-    access = resolve_access(user_id)
-    view = instances.load_view(type_id, access)
+    user_id = _user(request)
+    reader = instances.Reader(
+        user_id=user_id,
+        access=resolve_access(user_id),
+        subject_token=resolve_subject_token(request),
+    )
+    view = instances.load_view(type_id, reader.access)
     if view is None or view.type["status"] != s.OBJECT_ACTIVE:
         raise _type_not_found()
-    return view, access
+    return view, reader
 
 
 @router.get("/object-types/{type_id}/objects")
@@ -188,11 +194,10 @@ def list_objects(
     offset: int = 0,
 ) -> dict[str, Any]:
     """One page of a type's instances, read under the caller's data policies."""
-    user_id = _user(request)
-    view, _ = _active_view(type_id, user_id)
+    view, reader = _active_view(type_id, request)
     try:
         page = instances.list_objects(
-            view, user_id, search=search, limit=limit, offset=offset
+            view, reader, search=search, limit=limit, offset=offset
         )
     except instances.ObjectQueryError as exc:
         raise _bad(str(exc)) from exc
@@ -208,10 +213,9 @@ def list_objects(
 @router.get("/object-types/{type_id}/object")
 def get_object(type_id: str, key: str, request: Request) -> dict[str, Any]:
     """One instance by key, with the instances its links lead to."""
-    user_id = _user(request)
-    view, access = _active_view(type_id, user_id)
+    view, reader = _active_view(type_id, request)
     try:
-        found = instances.get_object(view, key, user_id, access)
+        found = instances.get_object(view, key, reader)
     except instances.ObjectQueryError as exc:
         raise _bad(str(exc)) from exc
     if found is None:

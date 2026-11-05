@@ -197,6 +197,13 @@ def _reid(document, seed: str):
     for fk in document.semantic_layer.semantic_fks:
         fk.column_id = new(fk.column_id)
         fk.column_attribute_id = new(fk.column_attribute_id)
+    for object_type in document.semantic_layer.object_types:
+        object_type.id = new(object_type.id)
+        object_type.table_id = new(object_type.table_id)
+    for link in document.semantic_layer.link_types:
+        link.id = new(link.id)
+        link.source_object_type_id = new(link.source_object_type_id)
+        link.target_object_type_id = new(link.target_object_type_id)
     return document
 
 
@@ -658,3 +665,141 @@ def test_an_import_cannot_duplicate_a_term_name(world) -> None:
             mi.apply_import_model(document, replace=False)
     finally:
         _cleanup(f"{world.prefix}-copy")
+
+
+# --------------------------------------------------------------------------
+# The object layer
+# --------------------------------------------------------------------------
+
+
+def _object_layer(world: World) -> tuple[str, str, str]:
+    """Order and customer object types, linked, with one renamed property."""
+    order = _add(
+        s.object_type,
+        table_id=world.orders,
+        display_name="订单",
+        pk_column="id",
+        status=s.OBJECT_ACTIVE,
+    )
+    customer = _add(
+        s.object_type,
+        table_id=world.customers,
+        display_name="客户",
+        pk_column="id",
+        status=s.OBJECT_ACTIVE,
+    )
+    _link(
+        s.object_property,
+        object_type_id=order,
+        column_name="customer_id",
+        display_name="下单客户ID",
+    )
+    link = _add(
+        s.link_type,
+        object_type_id=order,
+        target_object_type_id=customer,
+        source_column="customer_id",
+        target_column="id",
+        display_name="下单客户",
+        reverse_display_name="订单",
+        origin=s.LINK_FOREIGN_KEY,
+        status=s.OBJECT_ACTIVE,
+    )
+    return order, customer, link
+
+
+def _types_on(database_name: str) -> list[dict]:
+    o, t, sc, db = s.object_type, s.catalog_table, s.catalog_schema, s.catalog_database
+    return store().query_read(
+        select(o.c.id, o.c.display_name, t.c.name.label("table_name"))
+        .join(t, t.c.id == o.c.table_id)
+        .join(sc, sc.c.id == t.c.schema_id)
+        .join(db, db.c.id == sc.c.database_id)
+        .where(db.c.name == database_name)
+        .order_by(t.c.name)
+    )
+
+
+def test_export_carries_the_object_layer(world) -> None:
+    order, customer, link = _object_layer(world)
+    layer = _document(world).semantic_layer
+
+    by_id = {t.id: t for t in layer.object_types}
+    assert by_id[order].name == "订单"
+    assert by_id[order].table_id == world.orders
+    assert [(p.column, p.name) for p in by_id[order].properties] == [
+        ("customer_id", "下单客户ID")
+    ]
+    assert [(lt.id, lt.name, lt.reverse_name) for lt in layer.link_types] == [
+        (link, "下单客户", "订单")
+    ]
+    assert layer.link_types[0].target_object_type_id == customer
+
+
+def test_the_object_layer_survives_a_copy_and_a_reimport(world) -> None:
+    _object_layer(world)
+    target = f"{world.prefix}-copy"
+    document = _reid(_document(world), target)
+    document.data_layer.databases[0].schemas[0].database_name = target
+
+    try:
+        first = mi.apply_import_model(document, replace=False)
+        assert first["created"]["object_types"] == 2
+        assert first["created"]["link_types"] == 1
+        copied = _types_on(target)
+        assert [(r["display_name"], r["table_name"]) for r in copied] == [
+            ("客户", "customers"),
+            ("订单", "orders"),
+        ]
+        order_copy = copied[1]["id"]
+        assert store().query_read(
+            select(s.object_property.c.display_name).where(
+                s.object_property.c.object_type_id == order_copy
+            )
+        ) == [{"display_name": "下单客户ID"}]
+        assert store().query_read(
+            select(s.link_type.c.display_name).where(
+                s.link_type.c.object_type_id == order_copy
+            )
+        ) == [{"display_name": "下单客户"}]
+
+        second = mi.apply_import_model(document, replace=False)
+        assert second["created"]["object_types"] == 0
+        assert second["created"]["link_types"] == 0
+        assert second["skipped"]["object_types"] == 2
+    finally:
+        _cleanup(f"{world.prefix}-copy")
+
+
+def test_replace_updates_and_drops_object_types(world) -> None:
+    order, customer, link = _object_layer(world)
+    document = _document(world)
+    document.semantic_layer.object_types = [
+        t for t in document.semantic_layer.object_types if t.id == order
+    ]
+    document.semantic_layer.object_types[0].name = "销售订单"
+    document.semantic_layer.link_types = []
+
+    mi.apply_import_model(document, replace=True)
+
+    remaining = _types_on(world.prefix)
+    assert [r["display_name"] for r in remaining] == ["销售订单"]
+    assert (
+        store().query_read(select(s.link_type.c.id).where(s.link_type.c.id == link))
+        == []
+    )
+
+
+def test_replace_with_a_document_without_objects_keeps_them(world) -> None:
+    """A document from before the object layer must not wipe it."""
+    _object_layer(world)
+    plain = mi.AutoOntologyModelDocument.model_validate(
+        _document(world).model_dump(
+            exclude={"semantic_layer": {"object_types", "link_types"}}
+        )
+    )
+    assert "object_types" not in plain.semantic_layer.model_fields_set
+
+    mi.apply_import_model(plain, replace=True)
+
+    assert len(_types_on(world.prefix)) == 2

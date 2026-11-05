@@ -175,6 +175,7 @@
     "delete_object_types": "(type_ids: 'list[str]') -> 'int'",
     "fetch_catalog_tables": "(table_ids: 'list[str] | None' = None) -> 'list[dict[str, Any]]'",
     "fetch_key_pairs": "() -> 'list[dict[str, Any]]'",
+    "fetch_object_context": "(table_ids: 'list[str]') -> 'dict[str, dict[str, Any]]'",
     "fetch_property_overrides": "(type_id: 'str') -> 'dict[str, dict[str, Any]]'",
     "get_link_type": "(link_id: 'str') -> 'dict[str, Any] | None'",
     "get_object_type": "(type_id: 'str') -> 'dict[str, Any] | None'",

@@ -57,8 +57,23 @@ const downloadBlob = (blob: Blob, filename: string) => {
 	URL.revokeObjectURL(url);
 };
 
-const createdCountEntries = (counts: ImportEntityCounts): [string, number][] =>
-	Object.entries(counts).filter(([, value]) => value > 0);
+const ENTITY_LABEL: Record<keyof ImportEntityCounts, string> = {
+	databases: '数据库',
+	schemas: 'Schema',
+	tables: '数据表',
+	columns: '字段',
+	terms: '术语',
+	column_attributes: '字段属性',
+	sql_attributes: 'SQL 属性',
+	custom_analyses: '自定义分析',
+	object_types: '对象类型',
+	link_types: '关系类型',
+};
+
+const createdCountEntries = (counts: ImportEntityCounts): [keyof ImportEntityCounts, number][] =>
+	(Object.entries(counts) as [keyof ImportEntityCounts, number][]).filter(
+		([, value]) => value > 0,
+	);
 
 const checkboxClassName = 'h-4 w-4 rounded border-zinc-300 text-[#2563eb] focus:ring-[#2563eb]/30';
 
@@ -392,7 +407,7 @@ export const ImportExportView = () => {
 							<li>识别为 {FORMAT_LABEL[importSummary.format]}</li>
 							{createdCountEntries(importSummary.created).map(([key, value]) => (
 								<li key={key}>
-									Created {value} {key.replace(/_/g, ' ')}
+									新增 {value} 个{ENTITY_LABEL[key] ?? key}
 								</li>
 							))}
 							{importSummary.embeddings ? (

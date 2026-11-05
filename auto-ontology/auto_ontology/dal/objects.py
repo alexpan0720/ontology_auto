@@ -455,3 +455,56 @@ def counts() -> dict[str, int]:
         "active_links": by_link.get(s.OBJECT_ACTIVE, 0),
         "candidate_links": by_link.get(s.OBJECT_CANDIDATE, 0),
     }
+
+
+def fetch_object_context(table_ids: list[str]) -> dict[str, dict[str, Any]]:
+    """The active object each of *table_ids* backs, with its active links.
+
+    Keyed by table id; a table backing no active type is absent. Each link is
+    told from this table's side — the column on it, the other table and its
+    column — and only when both ends are active, so a question never sees a
+    relationship nobody has confirmed.
+    """
+    if not table_ids:
+        return {}
+    types = {t["id"]: t for t in list_object_types(status=s.OBJECT_ACTIVE)}
+    wanted = set(table_ids)
+    out: dict[str, dict[str, Any]] = {
+        t["table_id"]: {
+            "name": t["display_name"],
+            "description": t["description"],
+            "links": [],
+        }
+        for t in types.values()
+        if t["table_id"] in wanted
+    }
+    if not out:
+        return out
+    for link in list_link_types(status=s.OBJECT_ACTIVE):
+        source = types.get(link["object_type_id"])
+        target = types.get(link["target_object_type_id"])
+        if source is None or target is None:
+            continue
+        ends = (
+            (source, link["source_column"], target, link["target_column"], "out"),
+            (target, link["target_column"], source, link["source_column"], "in"),
+        )
+        for own, own_column, other, other_column, direction in ends:
+            entry = out.get(own["table_id"])
+            if entry is None:
+                continue
+            entry["links"].append(
+                {
+                    "direction": direction,
+                    "name": link["display_name"]
+                    if direction == "out"
+                    else link["reverse_display_name"],
+                    "column": own_column,
+                    "other_object": other["display_name"],
+                    "other_table_id": other["table_id"],
+                    "other_table": other["table_name"],
+                    "other_schema": other["schema_name"],
+                    "other_column": other_column,
+                }
+            )
+    return out

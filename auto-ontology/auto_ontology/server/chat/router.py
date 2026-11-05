@@ -106,7 +106,7 @@ from auto_ontology.dal import insights as insights_dal
 from auto_ontology.insights.board import classify
 from auto_ontology.server.chat.settings_dal import is_visualization_enabled
 from auto_ontology.server.chat.worker import PrewarmedWorker, get_pool
-from auto_ontology.server.identity import resolve_internal_user
+from auto_ontology.server.identity import resolve_internal_user, resolve_subject_token
 from auto_ontology.utils.llm_invoke import get_llm_client, get_non_reasoning_llm_client
 from auto_ontology.server.responses import ChatCancelResponse
 
@@ -546,35 +546,6 @@ def _record_outcome(slot: _Slot, event: dict) -> None:
         logger.exception("Failed to record question outcome")
 
 
-def _subject_token(http_request: Request) -> str | None:
-    """Return the caller's SSO JWT when a connection authenticates as the user.
-
-    The frontend forwards the browser user's SSO token (or a service caller's
-    own bearer token) as ``Authorization: Bearer``. Fail closed: when any
-    connection has "Authenticate as signed-in user" enabled, a request without a
-    token is rejected rather than allowed to run under that connection's PAT.
-    """
-    from auto_ontology.connectors.databricks_oauth import (
-        any_connection_uses_sso_federation,
-    )
-
-    if not any_connection_uses_sso_federation():
-        return None
-
-    header = http_request.headers.get("authorization") or ""
-    scheme, _, token = header.partition(" ")
-    token = token.strip()
-    if scheme.lower() != "bearer" or not token:
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "A connection is configured to authenticate as the signed-in "
-                "user, but the request carried no SSO bearer token."
-            ),
-        )
-    return token
-
-
 def _stream_slot(slot: _Slot) -> Generator[str, None, None]:
     """Replay ``slot.buffer`` from the start, then tail it live.
 
@@ -651,7 +622,7 @@ async def chat_completions(
         else str(uuid.uuid4())
     )
 
-    subject_token = _subject_token(http_request)
+    subject_token = resolve_subject_token(http_request)
 
     pool = get_pool()
     worker = await asyncio.to_thread(pool.acquire)
