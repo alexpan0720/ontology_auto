@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset='utf-8'><style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:900px;overflow:hidden;font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#0f172a;background:#fff}
+.wrap{width:900px;padding:36px 40px}
+.h{font-size:26px;font-weight:700;letter-spacing:1px}
+.sub{font-size:15px;color:#64748b;margin-top:6px}
+.blue{color:#2563eb}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 4px 14px rgba(15,23,42,.06)}
+.tag{display:inline-block;font-size:13px;padding:3px 10px;border-radius:999px;background:#eff6ff;color:#1d4ed8;margin:3px 4px 0 0}
+.mono{font-family:Consolas,"Cascadia Mono",monospace}
+</style></head><body>
+<div class="wrap" style="height:560px;background:#f8fafc">
+ <div class="h">整体架构</div>
+ <div class="sub">Docker Compose 一键启动，对外只需开放 3000 端口</div>
+ <div style="display:flex;gap:12px;margin-top:22px">
+  <div style="width:200px;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-weight:700;font-size:14.5px">🌐 Web 界面</div><div style="font-size:12px;color:#64748b;margin-top:3px;line-height:1.5">问数 / 目录 / 设置</div></div><div style="width:200px;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-weight:700;font-size:14.5px">💬 钉钉 / 飞书</div><div style="font-size:12px;color:#64748b;margin-top:3px;line-height:1.5">群聊 @机器人 追问</div></div>
+  <div style="width:200px;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-weight:700;font-size:14.5px">🔌 MCP · REST API</div><div style="font-size:12px;color:#64748b;margin-top:3px;line-height:1.5">Cursor、Claude 等 Agent</div></div><div style="width:180px;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-weight:700;font-size:14.5px">⏰ 订阅与预警</div><div style="font-size:12px;color:#64748b;margin-top:3px;line-height:1.5">定时推送到群</div></div>
+ </div>
+ <div style="text-align:center;color:#94a3b8;font-size:18px;margin:6px 0">▼</div>
+ <div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-weight:700;font-size:14.5px">Next.js 网关</div><div style="font-size:12px;color:#64748b;margin-top:3px;line-height:1.5">账号体系 · RBAC · SSO · API Token</div></div>
+ <div style="text-align:center;color:#94a3b8;font-size:18px;margin:6px 0">▼</div>
+ <div style="display:flex;gap:12px;align-items:stretch">
+  <div style="flex:1"><div style="background:#2563eb22;border:1.5px solid #2563eb;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-weight:700;font-size:14.5px">FastAPI 问数后端</div><div style="font-size:12px;color:#64748b;margin-top:3px;line-height:1.5">LangGraph 多阶段 Agent · 认证问答库 · 问数质量</div></div></div>
+  <div style="flex:1"><div style="background:#2563eb22;border:1.5px solid #2563eb;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-weight:700;font-size:14.5px">采集服务</div><div style="font-size:12px;color:#64748b;margin-top:3px;line-height:1.5">元数据采集 · PII 识别 · 语义编译 · 向量化</div></div></div>
+ </div>
+ <div style="display:flex;gap:12px;margin-top:12px">
+  <div style="flex:1"><div style="background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-weight:700;font-size:14.5px">🐘 Postgres + pgvector</div><div style="font-size:12px;color:#64748b;margin-top:3px;line-height:1.5">本体 · 目录 · 向量 · 审计</div></div></div>
+  <div style="flex:1"><div style="background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-weight:700;font-size:14.5px">🧠 大模型（OpenAI 兼容）</div><div style="font-size:12px;color:#64748b;margin-top:3px;line-height:1.5">硅基流动 · DeepSeek · NVIDIA NIM</div></div></div>
+ </div>
+ <div style="margin-top:12px;background:#fff7ed;border:1.5px solid #fdba74;border-radius:12px;padding:10px 14px;text-align:center">
+  <div style="font-weight:700;font-size:14.5px">🛡️ 治理层（连接器统一拦截）→ 源数据库</div>
+  <div style="font-size:12px;color:#9a3412;margin-top:4px">Postgres · MySQL · Snowflake · Databricks · ClickHouse · Trino · Kyuubi · DuckDB · SQLite · HeavyDB</div>
+ </div>
+</div>
+</body></html>
