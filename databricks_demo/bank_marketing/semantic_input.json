@@ -1,0 +1,23 @@
+{
+  "acronyms": [
+    { "name": "AUM", "description": "管理资产（Assets Under Management），客户在本行的金融资产合计：活期+定期（含大额存单）+理财+基金+保险现金价值，不含贷款。取 fact_aum_monthly.total_aum。" },
+    { "name": "RM", "description": "客户经理（Relationship Manager），对应 dim_relationship_manager；管户客户经理为 dim_customer.rm_id。" },
+    { "name": "中收", "description": "中间业务收入，理财、基金、保险等代销产生的手续费收入，取 mkt_conversion.fee_income。" },
+    { "name": "私行", "description": "私人银行客户，AUM 不低于 600 万元，customer_level = '私行'。" },
+    { "name": "高端客户", "description": "钻石及私行客户，customer_level IN ('钻石', '私行')。" },
+    { "name": "大额存单", "description": "起存 20 万元的个人大额可转让定期存款，product_type = '大额存单'。" },
+    { "name": "代发", "description": "代发工资，dim_customer.is_payroll 为真的客户为代发客户；代发入账交易 txn_type = '代发工资入账'。" },
+    { "name": "KYC", "description": "了解你的客户，包括身份核验和风险测评；风险测评等级为 dim_customer.risk_level（C1-C5）。" },
+    { "name": "C1-C5", "description": "客户风险测评等级：C1 保守型、C2 稳健型、C3 平衡型、C4 成长型、C5 进取型。" },
+    { "name": "R1-R5", "description": "产品风险等级，R1 最低、R5 最高；客户只能购买不高于自身测评等级的产品。" },
+    { "name": "开门红", "description": "每年一季度的集中营销季，以存款揽储和财富产品销售为主。" },
+    { "name": "季末冲存款", "description": "3、6、9、12 月末前的存款冲刺营销，对应活动类型“存款揽储”。" }
+  ],
+  "prompts": [
+    "这是一家城市商业银行零售条线的客户营销数据，覆盖上海、北京、深圳、杭州、南京、成都六家分行及下属支行。数据统计截至 2026-11-05：资产快照的最新月末是 2026-10-31，交易流水覆盖 2025-11-01 至 2026-10-31。用户说“现在”“当前”“10月末”时，资产取 2026-10-31 快照；说“未来30天”时指 2026-11-05 至 2026-12-05；说“今年”指 2026 年。",
+    "客户归属分行的方法：dim_customer.branch_id 是开户支行，通过 dim_branch.parent_branch_id 找到所属分行（branch_level = '分行'）。按“分行”统计时必须先关联到上级分行，不能直接按支行汇总。",
+    "AUM、存款、理财余额等资产类指标一律取 fact_aum_monthly 的月末快照，同一个统计口径下只取一个 snapshot_month，绝不能把多个月的快照直接相加。金额默认单位为元，展示给业务人员时优先换算为万元或亿元。",
+    "营销效果分析口径：名单数 = mkt_campaign_target 行数；触达 = contact_result 不为“未触达”；成交 = contact_result 为“已成交”，成交金额和中收取 mkt_conversion（通过 target_id 关联）。客户经理业绩按 mkt_conversion.rm_id 归属。",
+    "合规要求：客户风险测评等级（C1-C5）与产品风险等级（R1-R5）按数字比较，产品等级数字大于客户等级数字即为超风险持仓。不同意接收营销信息（marketing_consent 为假）的客户不能出现在营销名单建议中。身份证号和手机号属于敏感信息，问答中不主动展示。"
+  ]
+}

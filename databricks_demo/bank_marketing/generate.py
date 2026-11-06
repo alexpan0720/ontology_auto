@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import argparse
+import bisect
 import math
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -241,8 +242,11 @@ def build_customers(n: int, branches: pd.DataFrame, rms: pd.DataFrame) -> tuple[
 
         # 潜在财富：收入 x 年龄积累 x 城市系数，长尾对数正态
         income_mult = {"企业高管": 3.2, "私营业主": 3.6, "专业人士(医生/律师/教师)": 1.8, "公务员/事业单位": 1.2, "企业职员": 1.0, "自由职业": 0.9, "退休": 1.1, "学生": 0.15}[occupation]
-        wealth_z = r.normal(0, 1.25)
-        base = 28_000 * income_mult * BRANCH_WEALTH[parent] * (0.4 + min(age, 65) / 40) * math.exp(wealth_z)
+        wealth_z = r.normal(0, 1.6)
+        base = 9_000 * income_mult * BRANCH_WEALTH[parent] * (0.4 + min(age, 65) / 40) * math.exp(wealth_z)
+        # 高净值长尾：少数客户的资产比一般客户高出一两个数量级（企业主、高管更常见）
+        if r.random() < (0.09 if occupation in ("企业高管", "私营业主") else 0.022):
+            base = min(base * 12 * (1 + r.pareto(2.3)), 150_000_000)
         annual_income = 9_0000 * income_mult * math.exp(r.normal(0, 0.55)) * BRANCH_WEALTH[parent]
         income_band = INCOME_BANDS[int(np.searchsorted([100_000, 300_000, 500_000, 1_000_000], annual_income, side="right"))]
 
@@ -290,8 +294,11 @@ def build_customers(n: int, branches: pd.DataFrame, rms: pd.DataFrame) -> tuple[
         # 资产配置：风险偏好越高、资产越多，存款占比越低
         dep = np.clip(0.85 - 0.11 * (risk_n - 1) - 0.06 * math.log10(max(current, 1e3) / 1e4) + r.normal(0, 0.08), 0.12, 0.98)
         rest = 1 - dep
-        fund = rest * np.clip(0.12 * (risk_n - 1) + r.normal(0, 0.08), 0, 0.7)
-        ins = rest * (np.clip(r.normal(0.18, 0.1), 0, 0.5) if age >= 30 and current > 100_000 else 0)
+        # 只有部分客户买基金和保险：风险偏好高、资产多的更可能持有
+        holds_fund = r.random() < {1: 0.04, 2: 0.12, 3: 0.3, 4: 0.5, 5: 0.65}[risk_n] * (1.3 if current > 200_000 else 1)
+        fund = rest * np.clip(0.12 * (risk_n - 1) + r.normal(0.05, 0.08), 0.03, 0.7) if holds_fund else 0.0
+        holds_ins = age >= 30 and current > 100_000 and r.random() < 0.38
+        ins = rest * np.clip(r.normal(0.22, 0.1), 0.05, 0.5) if holds_ins else 0.0
         wealth = max(rest - fund - ins, 0)
 
         level = level_of(current)
@@ -339,7 +346,7 @@ def build_aum(customers: pd.DataFrame, traj: dict[int, Trajectory]) -> pd.DataFr
         t = traj[c.customer_id]
         mortgage = r.uniform(400_000, 3_500_000) if has_mortgage[c.customer_id] else 0.0
         for i, snap in enumerate(SNAPSHOTS):
-            total = float(t.totals[i]) if hasattr(t, "totals") else float(t.total[i])
+            total = float(t.total[i])
             if total <= 0:
                 continue
             jitter = r.normal(0, 0.03)
@@ -409,8 +416,8 @@ def build_holdings(customers: pd.DataFrame, aum: pd.DataFrame, products: pd.Data
         a = latest.loc[c.customer_id]
         cap = int(c.risk_level[1])
         breach = r.random() < 0.012  # 少量超风险等级持有，留作合规排查演示
-        for ptype, balance, parts in (("定期存款", a.time_deposit * 0.7, 2), ("大额存单", a.time_deposit * 0.3, 1), ("理财产品", a.wealth_balance, 3), ("公募基金", a.fund_balance, 3), ("保险", a.insurance_value, 1)):
-            if balance < 1000:
+        for ptype, balance, parts in (("定期存款", a.time_deposit * 0.7, 2), ("大额存单", a.time_deposit * 0.3, 1), ("理财产品", a.wealth_balance, 2), ("公募基金", a.fund_balance, 2), ("保险", a.insurance_value, 1)):
+            if balance < 5000:
                 continue
             if ptype == "大额存单" and balance < 200_000:
                 continue
@@ -421,7 +428,7 @@ def build_holdings(customers: pd.DataFrame, aum: pd.DataFrame, products: pd.Data
                 term = int(p.term_days or 0)
                 if term:
                     # 让一批到期日落在未来 60 天内，制造"到期承接"商机
-                    if r.random() < 0.18:
+                    if r.random() < 0.07:
                         maturity = TODAY + timedelta(days=int(r.integers(1, 60)))
                     else:
                         maturity = TODAY + timedelta(days=int(r.integers(60, max(term, 61))))
@@ -449,7 +456,6 @@ MERCHANT = ["餐饮", "商超", "交通出行", "医疗", "教育", "旅游酒�
 def build_transactions(customers: pd.DataFrame, accounts: pd.DataFrame, traj: dict[int, Trajectory]) -> pd.DataFrame:
     r = np.random.default_rng(SEED + 7)
     debit = accounts[accounts.account_type == "I类借记卡"].set_index("customer_id").account_id
-    days = (TXN_END - TXN_START).days + 1
     rows = []
     tid = 1
     for c in customers.itertuples():
@@ -614,7 +620,6 @@ def build_marketing(customers, aum, holdings, accounts, products, rms, traj):
     patterns = {cid: t.pattern for cid, t in traj.items()}
     campaigns, targets, conversions = [], [], []
     tgt_id, conv_id = 1, 1
-    snaps = pd.Series(SNAPSHOTS)
     in_stock = products[products.status == "在售"]
     for k, (name, ctype, ptype, start, end, channel, rule, budget) in enumerate(CAMPAIGNS, start=1):
         campaign_id = 5000 + k
@@ -623,7 +628,7 @@ def build_marketing(customers, aum, holdings, accounts, products, rms, traj):
         campaigns.append(dict(campaign_id=campaign_id, campaign_name=name if name.startswith(str(start.year)) or "2025" in name or "2026" in name else f"{start.year}{name}", campaign_type=ctype, target_product_type=ptype, start_date=start, end_date=end, main_channel=channel, target_rule=rule, budget=float(budget), owner_branch_id=owner, campaign_status=status))
         if start > TODAY:
             continue
-        snap_idx = int(np.clip(snaps.searchsorted(pd.Timestamp(start)) - 1, 0, MONTHS - 1))
+        snap_idx = int(np.clip(bisect.bisect_left(SNAPSHOTS, start) - 1, 0, MONTHS - 1))
         aum_then = aum[aum.snapshot_month == SNAPSHOTS[snap_idx]].set_index("customer_id").total_aum
         pool = customers[customers.open_date <= start]
         mask = eligible(rule, pool, aum_then, holdings, accounts, patterns)
@@ -836,7 +841,8 @@ def main() -> None:
         "fact_customer_tag": tags,
     }
     for name, df in tables.items():
-        df.to_parquet(args.out / f"{name}.parquet", index=False)
+        # 微秒精度：Databricks 读不了 pandas 默认的纳秒时间戳
+        df.to_parquet(args.out / f"{name}.parquet", index=False, coerce_timestamps="us", allow_truncated_timestamps=True)
         print(f"{name:28s} {len(df):>9,d} 行")
 
 

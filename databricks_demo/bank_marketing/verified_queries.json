@@ -1,0 +1,92 @@
+[
+  {
+    "question": "截至10月末，全行零售AUM是多少？各客户等级的客户数和AUM占比是多少？",
+    "note": "AUM 取月末快照；客户等级按 dim_customer.customer_level",
+    "sql": "SELECT c.customer_level AS `客户等级`, count(*) AS `客户数`, round(sum(a.total_aum) / 1e8, 2) AS `AUM_亿元`, round(100 * sum(a.total_aum) / sum(sum(a.total_aum)) OVER (), 1) AS `AUM占比_pct` FROM workspace.bank_marketing.dim_customer c JOIN workspace.bank_marketing.fact_aum_monthly a ON a.customer_id = c.customer_id WHERE a.snapshot_month = DATE'2026-10-31' GROUP BY c.customer_level ORDER BY `AUM_亿元` DESC"
+  },
+  {
+    "question": "近12个月全行零售AUM的月度趋势",
+    "note": "按月末快照汇总",
+    "sql": "SELECT snapshot_month AS `月末`, round(sum(total_aum) / 1e8, 2) AS `AUM_亿元`, round(sum(time_deposit + demand_deposit) / 1e8, 2) AS `存款_亿元`, round(sum(wealth_balance + fund_balance + insurance_value) / 1e8, 2) AS `财富类_亿元` FROM workspace.bank_marketing.fact_aum_monthly WHERE snapshot_month > DATE'2025-10-31' GROUP BY snapshot_month ORDER BY snapshot_month"
+  },
+  {
+    "question": "各分行10月末AUM及较年初的增长情况",
+    "note": "年初取 2025-12-31 快照；客户按开户支行归属分行",
+    "sql": "WITH b AS (SELECT s.branch_id, p.branch_name AS branch FROM workspace.bank_marketing.dim_branch s JOIN workspace.bank_marketing.dim_branch p ON p.branch_id = s.parent_branch_id) SELECT b.branch AS `分行`, round(sum(CASE WHEN a.snapshot_month = DATE'2026-10-31' THEN a.total_aum END) / 1e8, 2) AS `10月末AUM_亿元`, round(sum(CASE WHEN a.snapshot_month = DATE'2025-12-31' THEN a.total_aum END) / 1e8, 2) AS `年初AUM_亿元`, round(100 * (sum(CASE WHEN a.snapshot_month = DATE'2026-10-31' THEN a.total_aum END) / sum(CASE WHEN a.snapshot_month = DATE'2025-12-31' THEN a.total_aum END) - 1), 1) AS `较年初增长_pct` FROM workspace.bank_marketing.fact_aum_monthly a JOIN workspace.bank_marketing.dim_customer c ON c.customer_id = a.customer_id JOIN b ON b.branch_id = c.branch_id WHERE a.snapshot_month IN (DATE'2025-12-31', DATE'2026-10-31') GROUP BY b.branch ORDER BY `10月末AUM_亿元` DESC"
+  },
+  {
+    "question": "AUM排名前20的私行和钻石客户及其管户客户经理",
+    "note": "高净值客户名单，含管户客户经理",
+    "sql": "SELECT c.customer_id AS `客户号`, c.customer_name AS `客户姓名`, c.customer_level AS `客户等级`, round(a.total_aum / 1e4, 1) AS `AUM_万元`, r.rm_name AS `管户客户经理`, br.branch_name AS `开户机构` FROM workspace.bank_marketing.dim_customer c JOIN workspace.bank_marketing.fact_aum_monthly a ON a.customer_id = c.customer_id AND a.snapshot_month = DATE'2026-10-31' LEFT JOIN workspace.bank_marketing.dim_relationship_manager r ON r.rm_id = c.rm_id JOIN workspace.bank_marketing.dim_branch br ON br.branch_id = c.branch_id WHERE c.customer_level IN ('私行', '钻石') ORDER BY a.total_aum DESC LIMIT 20"
+  },
+  {
+    "question": "哪些客户有资金外流风险？列出近三个月AUM下降超过30%的客户",
+    "note": "比较 2026-07-31 与 2026-10-31 两个月末快照，只看三个月前 AUM 不低于5万的客户",
+    "sql": "WITH x AS (SELECT customer_id, max(CASE WHEN snapshot_month = DATE'2026-07-31' THEN total_aum END) AS aum_before, max(CASE WHEN snapshot_month = DATE'2026-10-31' THEN total_aum END) AS aum_now FROM workspace.bank_marketing.fact_aum_monthly WHERE snapshot_month IN (DATE'2026-07-31', DATE'2026-10-31') GROUP BY customer_id) SELECT c.customer_id AS `客户号`, c.customer_name AS `客户姓名`, c.customer_level AS `客户等级`, round(x.aum_before / 1e4, 1) AS `三个月前AUM_万元`, round(x.aum_now / 1e4, 1) AS `当前AUM_万元`, round(100 * (1 - x.aum_now / x.aum_before), 1) AS `下降幅度_pct`, r.rm_name AS `管户客户经理` FROM x JOIN workspace.bank_marketing.dim_customer c ON c.customer_id = x.customer_id LEFT JOIN workspace.bank_marketing.dim_relationship_manager r ON r.rm_id = c.rm_id WHERE x.aum_before >= 50000 AND x.aum_now < x.aum_before * 0.7 ORDER BY x.aum_before - x.aum_now DESC LIMIT 50"
+  },
+  {
+    "question": "未来30天内到期的定期存款和理财，按分行汇总到期金额",
+    "note": "到期承接商机；当前日期按 2026-11-05 计",
+    "sql": "SELECT p.branch_name AS `分行`, pr.product_type AS `产品大类`, count(DISTINCT h.customer_id) AS `到期客户数`, round(sum(h.holding_amount) / 1e4, 1) AS `到期金额_万元` FROM workspace.bank_marketing.fact_holding h JOIN workspace.bank_marketing.dim_product pr ON pr.product_id = h.product_id JOIN workspace.bank_marketing.dim_customer c ON c.customer_id = h.customer_id JOIN workspace.bank_marketing.dim_branch s ON s.branch_id = c.branch_id JOIN workspace.bank_marketing.dim_branch p ON p.branch_id = s.parent_branch_id WHERE h.holding_status = '持有中' AND h.maturity_date BETWEEN DATE'2026-11-05' AND DATE'2026-12-05' AND pr.product_type IN ('定期存款', '大额存单', '理财产品') GROUP BY p.branch_name, pr.product_type ORDER BY `到期金额_万元` DESC"
+  },
+  {
+    "question": "2026年各营销活动的名单数、触达率、成交率、成交金额和中间业务收入",
+    "note": "触达率=非未触达名单/名单数；成交率=已成交名单/名单数",
+    "sql": "SELECT m.campaign_name AS `活动名称`, m.campaign_type AS `活动类型`, m.main_channel AS `主渠道`, count(t.target_id) AS `名单数`, round(100 * avg(CASE WHEN t.contact_result <> '未触达' THEN 1 ELSE 0 END), 1) AS `触达率_pct`, round(100 * avg(CASE WHEN t.contact_result = '已成交' THEN 1 ELSE 0 END), 2) AS `成交率_pct`, round(coalesce(sum(v.convert_amount), 0) / 1e4, 1) AS `成交金额_万元`, round(coalesce(sum(v.fee_income), 0) / 1e4, 2) AS `中收_万元` FROM workspace.bank_marketing.mkt_campaign m JOIN workspace.bank_marketing.mkt_campaign_target t ON t.campaign_id = m.campaign_id LEFT JOIN workspace.bank_marketing.mkt_conversion v ON v.target_id = t.target_id WHERE m.start_date >= DATE'2026-01-01' GROUP BY m.campaign_name, m.campaign_type, m.main_channel ORDER BY `成交金额_万元` DESC"
+  },
+  {
+    "question": "不同触达渠道的营销转化率对比",
+    "note": "全部活动的名单按触达渠道汇总",
+    "sql": "SELECT contact_channel AS `触达渠道`, count(*) AS `名单数`, round(100 * avg(CASE WHEN contact_result <> '未触达' THEN 1 ELSE 0 END), 1) AS `触达率_pct`, round(100 * avg(CASE WHEN contact_result = '已成交' THEN 1 ELSE 0 END), 2) AS `成交率_pct`, round(100 * sum(CASE WHEN contact_result = '已成交' THEN 1 ELSE 0 END) / nullif(sum(CASE WHEN contact_result <> '未触达' THEN 1 ELSE 0 END), 0), 2) AS `触达后成交率_pct` FROM workspace.bank_marketing.mkt_campaign_target GROUP BY contact_channel ORDER BY `成交率_pct` DESC"
+  },
+  {
+    "question": "2026年客户经理营销业绩排名前10",
+    "note": "按营销成交的业绩归属客户经理汇总",
+    "sql": "SELECT r.rm_name AS `客户经理`, r.rm_level AS `职级`, b.branch_name AS `所属机构`, count(*) AS `成交笔数`, round(sum(v.convert_amount) / 1e4, 1) AS `成交金额_万元`, round(sum(v.fee_income) / 1e4, 2) AS `中收_万元` FROM workspace.bank_marketing.mkt_conversion v JOIN workspace.bank_marketing.dim_relationship_manager r ON r.rm_id = v.rm_id JOIN workspace.bank_marketing.dim_branch b ON b.branch_id = r.branch_id WHERE v.convert_date >= DATE'2026-01-01' GROUP BY r.rm_name, r.rm_level, b.branch_name ORDER BY `成交金额_万元` DESC LIMIT 10"
+  },
+  {
+    "question": "2026年每月新开户客户数",
+    "note": "按开户日期统计",
+    "sql": "SELECT date_format(open_date, 'yyyy-MM') AS `开户月份`, count(*) AS `新开户客户数` FROM workspace.bank_marketing.dim_customer WHERE open_date >= DATE'2026-01-01' GROUP BY date_format(open_date, 'yyyy-MM') ORDER BY `开户月份`"
+  },
+  {
+    "question": "代发工资客户和非代发客户的理财持有率对比",
+    "note": "理财持有率=当前持有理财产品的客户数/客户数",
+    "sql": "WITH w AS (SELECT DISTINCT h.customer_id FROM workspace.bank_marketing.fact_holding h JOIN workspace.bank_marketing.dim_product p ON p.product_id = h.product_id WHERE p.product_type = '理财产品' AND h.holding_status = '持有中') SELECT CASE WHEN c.is_payroll THEN '代发客户' ELSE '非代发客户' END AS `客群`, count(*) AS `客户数`, round(100 * count(w.customer_id) / count(*), 1) AS `理财持有率_pct` FROM workspace.bank_marketing.dim_customer c LEFT JOIN w ON w.customer_id = c.customer_id GROUP BY CASE WHEN c.is_payroll THEN '代发客户' ELSE '非代发客户' END"
+  },
+  {
+    "question": "有哪些客户持有的产品风险等级高于其风险测评等级？",
+    "note": "适当性合规排查：产品风险 R 等级数字 > 客户测评 C 等级数字",
+    "sql": "SELECT c.customer_id AS `客户号`, c.customer_name AS `客户姓名`, c.risk_level AS `客户风险等级`, p.product_name AS `产品`, p.risk_rating AS `产品风险等级`, round(h.holding_amount / 1e4, 1) AS `持有金额_万元`, r.rm_name AS `管户客户经理` FROM workspace.bank_marketing.fact_holding h JOIN workspace.bank_marketing.dim_product p ON p.product_id = h.product_id JOIN workspace.bank_marketing.dim_customer c ON c.customer_id = h.customer_id LEFT JOIN workspace.bank_marketing.dim_relationship_manager r ON r.rm_id = c.rm_id WHERE h.holding_status = '持有中' AND CAST(substr(p.risk_rating, 2, 1) AS INT) > CAST(substr(c.risk_level, 2, 1) AS INT) ORDER BY h.holding_amount DESC"
+  },
+  {
+    "question": "各客户经理待跟进的大额资金转出商机有多少？",
+    "note": "事件类型=大额资金转出且跟进状态=待跟进，按管户客户经理汇总",
+    "sql": "SELECT coalesce(r.rm_name, '未分配管户') AS `客户经理`, count(*) AS `待跟进商机数`, count(DISTINCT e.customer_id) AS `涉及客户数`, round(sum(e.related_amount) / 1e4, 1) AS `转出金额_万元` FROM workspace.bank_marketing.fact_customer_event e JOIN workspace.bank_marketing.dim_customer c ON c.customer_id = e.customer_id LEFT JOIN workspace.bank_marketing.dim_relationship_manager r ON r.rm_id = c.rm_id WHERE e.event_type = '大额资金转出' AND e.handle_status = '待跟进' GROUP BY coalesce(r.rm_name, '未分配管户') ORDER BY `转出金额_万元` DESC LIMIT 20"
+  },
+  {
+    "question": "AUM超过100万但没有配置保险的客户有哪些？",
+    "note": "保障缺口客户，保险营销目标客群",
+    "sql": "SELECT c.customer_id AS `客户号`, c.customer_name AS `客户姓名`, c.customer_level AS `客户等级`, round(a.total_aum / 1e4, 1) AS `AUM_万元`, floor(datediff(DATE'2026-11-05', c.birth_date) / 365.25) AS `年龄`, r.rm_name AS `管户客户经理` FROM workspace.bank_marketing.dim_customer c JOIN workspace.bank_marketing.fact_aum_monthly a ON a.customer_id = c.customer_id AND a.snapshot_month = DATE'2026-10-31' LEFT JOIN workspace.bank_marketing.dim_relationship_manager r ON r.rm_id = c.rm_id WHERE a.total_aum >= 1000000 AND a.insurance_value = 0 ORDER BY a.total_aum DESC"
+  },
+  {
+    "question": "10月末各产品大类的持仓余额和持有客户数",
+    "note": "当前持有中的持仓",
+    "sql": "SELECT p.product_type AS `产品大类`, count(DISTINCT h.customer_id) AS `持有客户数`, round(sum(h.holding_amount) / 1e8, 2) AS `持仓余额_亿元` FROM workspace.bank_marketing.fact_holding h JOIN workspace.bank_marketing.dim_product p ON p.product_id = h.product_id WHERE h.holding_status = '持有中' GROUP BY p.product_type ORDER BY `持仓余额_亿元` DESC"
+  },
+  {
+    "question": "各分行的沉睡客户有多少？",
+    "note": "客户状态=沉睡",
+    "sql": "SELECT p.branch_name AS `分行`, count(*) AS `沉睡客户数`, round(100 * count(*) / sum(count(*)) OVER (), 1) AS `占比_pct` FROM workspace.bank_marketing.dim_customer c JOIN workspace.bank_marketing.dim_branch s ON s.branch_id = c.branch_id JOIN workspace.bank_marketing.dim_branch p ON p.branch_id = s.parent_branch_id WHERE c.customer_status = '沉睡' GROUP BY p.branch_name ORDER BY `沉睡客户数` DESC"
+  },
+  {
+    "question": "2026新春揽储活动的投入产出如何？",
+    "note": "成交金额与预算之比；中收为大额存单类活动为0",
+    "sql": "SELECT m.campaign_name AS `活动名称`, round(m.budget / 1e4, 1) AS `预算_万元`, count(v.conversion_id) AS `成交笔数`, round(sum(v.convert_amount) / 1e8, 2) AS `成交金额_亿元`, round(sum(v.convert_amount) / m.budget, 0) AS `每元预算带来存款_元` FROM workspace.bank_marketing.mkt_campaign m LEFT JOIN workspace.bank_marketing.mkt_conversion v ON v.campaign_id = m.campaign_id WHERE m.campaign_name LIKE '2026新春揽储%' GROUP BY m.campaign_name, m.budget"
+  },
+  {
+    "question": "最近12个月每月代发工资的入账人数和金额",
+    "note": "代发工资入账交易",
+    "sql": "SELECT date_format(txn_time, 'yyyy-MM') AS `月份`, count(DISTINCT customer_id) AS `入账人数`, round(sum(amount) / 1e4, 1) AS `代发金额_万元` FROM workspace.bank_marketing.fact_transaction WHERE txn_type = '代发工资入账' GROUP BY date_format(txn_time, 'yyyy-MM') ORDER BY `月份`"
+  }
+]
