@@ -61,8 +61,7 @@ def ask(question: str, user_id: str) -> dict:
                 answer = data.get("answer") or {}
                 out["sql"] = answer.get("sql_code") or out["sql"]
                 out["answer"] = answer.get("response") or ""
-                result = answer.get("sql_response") or answer.get("result")
-                out["rows"] = result
+                out["rows"] = answer.get("sql_response_from_db")
             elif data.get("type") == "error":
                 out["error"] = data.get("message") or data
     return out
